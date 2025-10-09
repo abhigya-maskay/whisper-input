@@ -1,0 +1,25 @@
+cabal-version:   3.0
+name:            whisper-input
+version:         0.1.0.0
+synopsis:        A wrapper around the OpenAI Whisper model for dictation
+description:     Allows the user to use the Whisper model to input text into any
+                 focused window. Currently compatibility is only planned for
+                 Wayland with ydotool.
+author:          Abhigya Maskay
+maintainer:      ave70011@gmail.com
+category:        Application
+homepage:        https://github.com/abhigya-maskay/whisper-input
+license:         MIT
+license-file:    LICENSE
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+executable whisper-input
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    base ^>=4.20.2.0
+    hs-source-dirs:   app
+    default-language: Haskell2010
