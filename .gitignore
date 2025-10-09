@@ -1,0 +1,15 @@
+# Cabal build output
+dist
+dist-newstyle
+
+# Nix
+result
+.direnv/
+
+# Editor files
+*.swp
+.DS_Store
+
+# GHC artifacts
+*.hi
+*.o
