@@ -73,9 +73,8 @@ This project uses a pre-commit hook to maintain code quality. The hook runs auto
 - The hook only runs when you're inside `nix develop` (it needs the tools)
 - Formatting happens automatically - your code will be formatted before committing
 - If HLint finds issues, the commit will be rejected. Fix the issues and try again.
-- The hook only processes `.hs` and `.lhs` files that are staged for commit
+- The hook only processes `.hs` files that are staged for commit
 
 **Troubleshooting:**
 - If you see "ormolu not found" or "hlint not found", make sure you're in `nix develop`
 - To bypass the hook (not recommended): `git commit --no-verify`
-# Test change
