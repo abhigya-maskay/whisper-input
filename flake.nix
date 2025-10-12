@@ -18,7 +18,18 @@
           pkgs.haskell.packages.ghc912.ghc
           pkgs.cabal-install
           pkgs.nixpkgs-fmt
+          pkgs.haskell.packages.ghc912.haskell-language-server
+          pkgs.haskell.packages.ghc912.ormolu
+          pkgs.haskell.packages.ghc912.hlint
         ];
+
+        shellHook = ''
+          # Configure git to use .githooks directory for hooks
+          if git rev-parse --git-dir > /dev/null 2>&1; then
+            git config --local core.hooksPath .githooks
+            echo "Git hooks path set to .githooks"
+          fi
+        '';
       };
     };
 }
