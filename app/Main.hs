@@ -1,6 +1,7 @@
 module Main (main) where
 
 -- Main entry point for whisper-input CLI
+-- This module provides the command-line interface
 
 import Data.Version (showVersion)
 import qualified Options.Applicative as O
