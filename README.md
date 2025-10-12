@@ -78,4 +78,3 @@ This project uses a pre-commit hook to maintain code quality. The hook runs auto
 **Troubleshooting:**
 - If you see "ormolu not found" or "hlint not found", make sure you're in `nix develop`
 - To bypass the hook (not recommended): `git commit --no-verify`
-# Test change
