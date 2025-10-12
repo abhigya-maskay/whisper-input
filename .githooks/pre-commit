@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -e
+
+exec 1>&2
+
+echo "Running pre-commit hook..."
+
+if ! command -v ormolu &> /dev/null; then
+    echo "Error: ormolu not found in PATH"
+    echo "Make sure you're running this inside 'nix develop'"
+    exit 1
+fi
+
+if ! command -v hlint &> /dev/null; then
+    echo "Error: hlint not found in PATH"
+    echo "Make sure you're running this inside 'nix develop'"
+    exit 1
+fi
+
+echo "✓ Tools available (ormolu, hlint)"
+
+STAGED_HS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(hs|lhs)$' || true)
+
+if [ -z "$STAGED_HS_FILES" ]; then
+    echo "No Haskell files staged, skipping format/lint"
+    exit 0
+fi
+
+echo "Found staged Haskell files:"
+echo "$STAGED_HS_FILES"
+
+echo ""
+echo "Formatting with Ormolu..."
+echo "$STAGED_HS_FILES" | while IFS= read -r file; do
+    echo "  Formatting: $file"
+    ormolu --mode inplace "$file"
+    git add "$file"
+done
+
+echo "✓ Formatting complete"
+
+echo ""
+echo "Running HLint..."
+set +e
+echo "$STAGED_HS_FILES" | xargs hlint
+HLINT_EXIT=$?
+set -e
+
+if [ $HLINT_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ HLint found issues. Please fix them and try again."
+    exit $HLINT_EXIT
+fi
+
+echo "✓ HLint passed"
+echo ""
+echo "✓ All checks passed! Proceeding with commit."
