@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
-#
-# Pre-commit hook for whisper-input
-# Formats Haskell files with Ormolu and lints with HLint
-#
 
-set -e  # Exit immediately if any command fails
+set -e
 
-# Redirect output to stderr
 exec 1>&2
 
 echo "Running pre-commit hook..."
 
-# Check for required tools
 if ! command -v ormolu &> /dev/null; then
     echo "Error: ormolu not found in PATH"
     echo "Make sure you're running this inside 'nix develop'"
@@ -26,15 +20,8 @@ fi
 
 echo "✓ Tools available (ormolu, hlint)"
 
-# Get list of staged Haskell files (.hs and .lhs)
-# --cached: look at staging area, not working directory
-# --name-only: just filenames, not diff content
-# --diff-filter=ACM: Added, Copied, or Modified files (skip Deleted)
-# || true: prevent grep from failing the script when no matches found
 STAGED_HS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(hs|lhs)$' || true)
 
-# Early exit if no Haskell files are staged
-# -z tests for zero length (empty string)
 if [ -z "$STAGED_HS_FILES" ]; then
     echo "No Haskell files staged, skipping format/lint"
     exit 0
@@ -43,31 +30,23 @@ fi
 echo "Found staged Haskell files:"
 echo "$STAGED_HS_FILES"
 
-# Format each file with Ormolu and re-stage it
-# We use a while loop with IFS= read -r for safe handling of filenames with spaces
 echo ""
 echo "Formatting with Ormolu..."
 echo "$STAGED_HS_FILES" | while IFS= read -r file; do
     echo "  Formatting: $file"
     ormolu --mode inplace "$file"
-    # Re-stage the file after formatting
-    # This ensures the formatted version is what gets committed
     git add "$file"
 done
 
 echo "✓ Formatting complete"
 
-# Run HLint on all staged Haskell files
-# We disable set -e temporarily so we can capture HLint's exit code
-# and provide a helpful error message before exiting
 echo ""
 echo "Running HLint..."
-set +e  # Temporarily disable exit-on-error
+set +e
 echo "$STAGED_HS_FILES" | xargs hlint
-HLINT_EXIT=$?  # Capture HLint's exit code
-set -e  # Re-enable exit-on-error
+HLINT_EXIT=$?
+set -e
 
-# If HLint found issues, fail the commit
 if [ $HLINT_EXIT -ne 0 ]; then
     echo ""
     echo "❌ HLint found issues. Please fix them and try again."
