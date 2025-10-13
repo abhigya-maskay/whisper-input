@@ -20,7 +20,15 @@ common warnings
 executable whisper-input
     import:           warnings
     main-is:          Main.hs
+    other-modules:    Paths_whisper_input
     build-depends:    base ^>=4.21.0.0
                     , optparse-applicative
+                    , network
+                    , unix
+                    , async
+                    , stm
+                    , directory
+                    , filepath
     hs-source-dirs:   app
     default-language: Haskell2010
+    autogen-modules:  Paths_whisper_input
