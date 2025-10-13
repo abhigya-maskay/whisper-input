@@ -22,11 +22,16 @@ library
     exposed-modules:  WhisperInput.SocketPath
                     , WhisperInput.CLI
                     , WhisperInput.Commands
+                    , WhisperInput.IPC
     other-modules:    Paths_whisper_input
     default-extensions: OverloadedStrings
+                      , LambdaCase
     build-depends:    base ^>=4.21.0.0
+                    , bytestring
                     , directory
                     , filepath
+                    , network >= 3.1
+                    , text
                     , unix
                     , optparse-applicative
     hs-source-dirs:   src
