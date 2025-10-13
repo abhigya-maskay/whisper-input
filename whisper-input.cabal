@@ -21,6 +21,8 @@ executable whisper-input
     import:           warnings
     main-is:          Main.hs
     other-modules:    Paths_whisper_input
+                    , WhisperInput.SocketPath
+    default-extensions: OverloadedStrings
     build-depends:    base ^>=4.21.0.0
                     , optparse-applicative
                     , network

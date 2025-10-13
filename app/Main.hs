@@ -5,6 +5,7 @@ import qualified Options.Applicative as O
 import qualified Paths_whisper_input
 import System.Exit
 
+-- | CLI commands for whisper-input.
 data Command
   = Daemon
   | StartRecording
@@ -12,6 +13,7 @@ data Command
   | Status
   deriving (Eq, Show)
 
+-- | Parser for CLI subcommands.
 commandParser :: O.Parser Command
 commandParser =
   O.hsubparser $
@@ -28,12 +30,14 @@ commandParser =
         "status"
         (O.info (O.pure Status) (O.progDesc "Check daemon status"))
 
+-- | Parser for --version flag.
 versionOption :: O.Parser (a -> a)
 versionOption =
   O.infoOption
     (showVersion Paths_whisper_input.version)
     (O.long "version" <> O.help "Show version")
 
+-- | Complete parser info with subcommands, help, and version.
 parserInfo :: O.ParserInfo Command
 parserInfo =
   O.info (commandParser O.<**> O.helper O.<**> versionOption) $
@@ -41,6 +45,7 @@ parserInfo =
       <> O.progDesc "A wrapper around OpenAI Whisper for dictation"
       <> O.header "whisper-input - voice input for any application"
 
+-- | Execute the given command (stub implementations).
 runCommand :: Command -> IO ()
 runCommand Daemon = do
   putStrLn "daemon: not implemented"
@@ -55,5 +60,6 @@ runCommand Status = do
   putStrLn "daemon not running"
   exitWith (ExitFailure 1)
 
+-- | Main entry point: parse arguments and run command.
 main :: IO ()
 main = O.execParser parserInfo >>= runCommand
