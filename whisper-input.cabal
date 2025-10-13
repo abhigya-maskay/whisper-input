@@ -23,6 +23,7 @@ library
                     , WhisperInput.CLI
                     , WhisperInput.Commands
                     , WhisperInput.IPC
+                    , WhisperInput.Daemon
     other-modules:    Paths_whisper_input
     default-extensions: OverloadedStrings
                       , LambdaCase
