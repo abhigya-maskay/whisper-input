@@ -14,26 +14,11 @@ import Network.Socket (Family (..), SockAddr (..), Socket, SocketType (..))
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as SBS
 import WhisperInput.Daemon
-  ( DaemonCommand (..),
-    DaemonHandle,
-    DaemonResponse (..),
-    DaemonState (..),
+  ( DaemonHandle,
     newDaemon,
     processDaemonCommand,
   )
-
-parseCommand :: Text -> Either Text DaemonCommand
-parseCommand cmd = case T.strip cmd of
-  "START" -> Right Start
-  "STOP" -> Right Stop
-  "STATUS" -> Right Status
-  _ -> Left "Unknown command"
-
-formatResponse :: DaemonResponse -> Text
-formatResponse Ack = "ACK"
-formatResponse (StateReport Idle) = "STATE: Idle"
-formatResponse (StateReport Recording) = "STATE: Recording"
-formatResponse (Error msg) = "ERROR: " <> msg
+import qualified WhisperInput.Protocol as Protocol
 
 recvLine :: Socket -> IO Text
 recvLine sock = recvUntilNewline sock BS.empty
@@ -64,10 +49,10 @@ handleConnection daemonHandle clientSock =
   ( do
       commandText <- recvLine clientSock
       putStrLn $ "Command: Received " ++ T.unpack commandText
-      daemonResponse <- case parseCommand commandText of
-        Left errMsg -> return (Error errMsg)
+      daemonResponse <- case Protocol.parseCommand commandText of
+        Left errMsg -> return (Protocol.Error errMsg)
         Right cmd -> processDaemonCommand daemonHandle cmd
-      let responseText = formatResponse daemonResponse
+      let responseText = Protocol.serializeResponse daemonResponse
       sendLine clientSock responseText
       putStrLn $ "Response: Sent " ++ T.unpack responseText
   )

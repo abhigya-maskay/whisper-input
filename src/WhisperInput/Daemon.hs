@@ -1,8 +1,5 @@
 module WhisperInput.Daemon
-  ( DaemonState (..),
-    DaemonCommand (..),
-    DaemonResponse (..),
-    DaemonHandle,
+  ( DaemonHandle,
     handleCommand,
     newDaemon,
     processDaemonCommand,
@@ -10,26 +7,9 @@ module WhisperInput.Daemon
 where
 
 import Control.Concurrent.MVar (MVar, modifyMVar, newMVar)
-import Data.Text (Text)
+import WhisperInput.Protocol (Command (..), Response (..), State (..))
 
-data DaemonState
-  = Idle
-  | Recording
-  deriving (Show, Eq)
-
-data DaemonCommand
-  = Start
-  | Stop
-  | Status
-  deriving (Show, Eq)
-
-data DaemonResponse
-  = Ack
-  | StateReport DaemonState
-  | Error Text
-  deriving (Show, Eq)
-
-handleCommand :: DaemonState -> DaemonCommand -> (DaemonState, DaemonResponse)
+handleCommand :: State -> Command -> (State, Response)
 handleCommand Idle Start = (Recording, Ack)
 handleCommand Idle Stop = (Idle, Error "Already stopped")
 handleCommand Idle Status = (Idle, StateReport Idle)
@@ -37,12 +17,12 @@ handleCommand Recording Start = (Recording, Error "Already recording")
 handleCommand Recording Stop = (Idle, Ack)
 handleCommand Recording Status = (Recording, StateReport Recording)
 
-newtype DaemonHandle = DaemonHandle (MVar DaemonState)
+newtype DaemonHandle = DaemonHandle (MVar State)
 
 newDaemon :: IO DaemonHandle
 newDaemon = DaemonHandle <$> newMVar Idle
 
-processDaemonCommand :: DaemonHandle -> DaemonCommand -> IO DaemonResponse
+processDaemonCommand :: DaemonHandle -> Command -> IO Response
 processDaemonCommand (DaemonHandle stateVar) cmd =
   modifyMVar stateVar $ \currentState ->
     return (handleCommand currentState cmd)

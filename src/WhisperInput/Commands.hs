@@ -22,6 +22,7 @@ import WhisperInput.PidFile
     getPidFilePath,
     writePidFile,
   )
+import qualified WhisperInput.Protocol as Protocol
 import WhisperInput.Server (runServer)
 import WhisperInput.SocketPath (getSocketPath)
 
@@ -104,22 +105,24 @@ startDaemon = do
     ( runServer socketPath shutdownVar
         `catch` \(exc :: SomeException) -> do
           hPutStrLn stderr $ "Daemon: Server error: " ++ show exc
+          exitFailure
     )
+
+toProtocolCommand :: Command -> Maybe Protocol.Command
+toProtocolCommand StartRecording = Just Protocol.Start
+toProtocolCommand StopRecording = Just Protocol.Stop
+toProtocolCommand Status = Just Protocol.Status
+toProtocolCommand Daemon = Nothing
 
 runCommand :: Command -> IO ()
 runCommand Daemon = startDaemon
-runCommand StartRecording = do
-  result <- sendCommand "START"
-  case result of
-    Left err -> handleIPCError err
-    Right response -> handleAckResponse "START" response
-runCommand StopRecording = do
-  result <- sendCommand "STOP"
-  case result of
-    Left err -> handleIPCError err
-    Right response -> handleAckResponse "STOP" response
-runCommand Status = do
-  result <- sendCommand "STATUS"
-  case result of
-    Left err -> handleIPCError err
-    Right response -> handleStatusResponse response
+runCommand cmd = case toProtocolCommand cmd of
+  Nothing -> return ()
+  Just protoCmd -> do
+    let wireText = Protocol.serializeCommand protoCmd
+    result <- sendCommand wireText
+    case result of
+      Left err -> handleIPCError err
+      Right response -> case protoCmd of
+        Protocol.Status -> handleStatusResponse response
+        _ -> handleAckResponse wireText response
