@@ -78,3 +78,27 @@ This project uses a pre-commit hook to maintain code quality. The hook runs auto
 **Troubleshooting:**
 - If you see "ormolu not found" or "hlint not found", make sure you're in `nix develop`
 - To bypass the hook (not recommended): `git commit --no-verify`
+
+## Daemon Lifecycle and IPC
+
+### Daemon lifecycle
+- Start: `whisper-input daemon`
+  - Logs: `Daemon: Starting on socket <path>`, `Daemon: Ready (PID: <pid>)`, `Server: Socket bound to <path>`, `Server: Listening for connections`.
+- Single instance: Starting a second daemon prints `Daemon already running (PID: <pid>)` and exits non‑zero.
+- Stop: Send `SIGINT` or `SIGTERM` (e.g., `Ctrl-C` or `kill -TERM <pid>`)
+  - Logs: `Daemon: Shutdown signal received`, then `Daemon: Stopped, cleaning up...`.
+  - Cleanup: Removes the Unix socket and `.pid` file so the next start is clean.
+
+### IPC details
+- Socket path: `$XDG_RUNTIME_DIR/whisper-input.sock`
+  - Fallback: `/tmp/whisper-input-<UID>/whisper-input.sock` when `XDG_RUNTIME_DIR` is unset.
+  - Directory is created with `0700` permissions if missing.
+- Text protocol (one line per message):
+  - Commands: `START`, `STOP`, `STATUS`
+  - Responses: `ACK`, `ERROR: <message>`, `STATE: Idle` | `STATE: Recording`
+
+### CLI ↔ IPC mapping and exit codes
+- `whisper-input start-recording` → sends `START`; exits `0` on `ACK`, non‑zero on `ERROR:`.
+- `whisper-input stop-recording` → sends `STOP`; exits `0` on `ACK`, non‑zero on `ERROR:`.
+- `whisper-input status` → sends `STATUS`; prints `Idle` or `Recording` on success and exits `0`.
+- When the daemon is unreachable, commands print an error to stderr and exit non‑zero.
