@@ -26,6 +26,7 @@ library
                     , WhisperInput.Daemon
                     , WhisperInput.PidFile
                     , WhisperInput.Protocol
+                    , WhisperInput.Transport
                     , WhisperInput.Server
     other-modules:    Paths_whisper_input
     default-extensions: OverloadedStrings

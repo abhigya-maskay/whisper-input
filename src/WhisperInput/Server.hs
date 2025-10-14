@@ -6,43 +6,35 @@ where
 import Control.Concurrent.Async (race)
 import Control.Concurrent.MVar (MVar, takeMVar)
 import Control.Exception (SomeException, bracket, catch, throw, try)
-import qualified Data.ByteString as BS
 import Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Network.Socket (Family (..), SockAddr (..), Socket, SocketType (..))
 import qualified Network.Socket as Socket
-import qualified Network.Socket.ByteString as SBS
 import WhisperInput.Daemon
   ( DaemonHandle,
     newDaemon,
     processDaemonCommand,
   )
 import qualified WhisperInput.Protocol as Protocol
+import qualified WhisperInput.Transport as Transport
 
 recvLine :: Socket -> IO Text
-recvLine sock = recvUntilNewline sock BS.empty
-  where
-    recvUntilNewline :: Socket -> BS.ByteString -> IO Text
-    recvUntilNewline s accumulated = do
-      chunk <- SBS.recv s 4096
-      if BS.null chunk
-        then throw (userError "Client disconnected")
-        else do
-          let combined = accumulated <> chunk
-          case BS.elemIndex 10 combined of
-            Nothing -> recvUntilNewline s combined
-            Just nlPos -> do
-              let line = BS.take nlPos combined
-              case TE.decodeUtf8' line of
-                Left _ -> throw (userError "Invalid UTF-8")
-                Right text -> return text
+recvLine sock = do
+  result <- Transport.recvLine sock
+  case result of
+    Left Transport.ConnectionClosed -> throw (userError "Client disconnected")
+    Left Transport.InvalidUTF8 -> throw (userError "Invalid UTF-8")
+    Left (Transport.TransportIOError ioErr) -> throw ioErr
+    Right text -> return text
 
 sendLine :: Socket -> Text -> IO ()
-sendLine sock response = do
-  let responseWithNewline = if T.isSuffixOf "\n" response then response else response <> "\n"
-  let bytes = TE.encodeUtf8 responseWithNewline
-  SBS.sendAll sock bytes
+sendLine sock message = do
+  result <- Transport.sendLine sock message
+  case result of
+    Left (Transport.TransportIOError ioErr) -> throw ioErr
+    Left Transport.ConnectionClosed -> throw (userError "Connection closed during send")
+    Left Transport.InvalidUTF8 -> throw (userError "Invalid UTF-8 in send")
+    Right () -> return ()
 
 handleConnection :: DaemonHandle -> Socket -> IO ()
 handleConnection daemonHandle clientSock =

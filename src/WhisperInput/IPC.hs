@@ -6,16 +6,13 @@ module WhisperInput.IPC
 where
 
 import Control.Exception (Exception, IOException, bracket, try)
-import qualified Data.ByteString as BS
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Network.Socket (Family (..), SockAddr (..), Socket, SocketType (..))
 import qualified Network.Socket as Socket
-import qualified Network.Socket.ByteString as SBS
 import System.IO.Error (isDoesNotExistError, isPermissionError)
 import System.Timeout (timeout)
 import WhisperInput.SocketPath (getSocketPath)
+import qualified WhisperInput.Transport as Transport
 
 data IPCError
   = DaemonNotRunning
@@ -29,6 +26,11 @@ data IPCError
   deriving (Show, Eq)
 
 instance Exception IPCError
+
+transportErrorToIPCError :: Transport.TransportError -> IPCError
+transportErrorToIPCError Transport.ConnectionClosed = UnexpectedEOF
+transportErrorToIPCError Transport.InvalidUTF8 = MalformedResponse "Invalid UTF-8 in response"
+transportErrorToIPCError (Transport.TransportIOError ioErr) = OtherIOError ioErr
 
 connectTimeout :: Int
 connectTimeout = 2000000
@@ -59,36 +61,19 @@ connectWithTimeout socketPath = do
 
 sendLine :: Socket -> Text -> IO (Either IPCError ())
 sendLine sock cmd = do
-  let cmdWithNewline = if T.isSuffixOf "\n" cmd then cmd else cmd <> "\n"
-  let bytes = TE.encodeUtf8 cmdWithNewline
-  result <- try $ SBS.sendAll sock bytes :: IO (Either IOException ())
+  result <- Transport.sendLine sock cmd
   case result of
-    Left ioErr -> return $ Left (WriteError (T.pack $ show ioErr))
+    Left err -> return $ Left (transportErrorToIPCError err)
     Right () -> return $ Right ()
 
 recvLine :: Socket -> IO (Either IPCError Text)
 recvLine sock = do
-  result <- timeout readTimeout (recvUntilNewline sock BS.empty)
+  result <- timeout readTimeout (Transport.recvLine sock)
   case result of
     Nothing -> return $ Left ReadTimeout
-    Just eitherLine -> return eitherLine
-
-recvUntilNewline :: Socket -> BS.ByteString -> IO (Either IPCError Text)
-recvUntilNewline sock accumulated = do
-  result <- try $ SBS.recv sock 4096
-  case result of
-    Left ioErr -> return $ Left (OtherIOError ioErr)
-    Right chunk
-      | BS.null chunk -> return $ Left UnexpectedEOF
-      | otherwise -> do
-          let combined = accumulated <> chunk
-          case BS.elemIndex 10 combined of
-            Nothing -> recvUntilNewline sock combined
-            Just nlPos -> do
-              let line = BS.take nlPos combined
-              case TE.decodeUtf8' line of
-                Left _ -> return $ Left (MalformedResponse "Invalid UTF-8 in response")
-                Right text -> return $ Right text
+    Just eitherLine -> case eitherLine of
+      Left err -> return $ Left (transportErrorToIPCError err)
+      Right text -> return $ Right text
 
 sendCommand :: Text -> IO (Either IPCError Text)
 sendCommand cmd = do
