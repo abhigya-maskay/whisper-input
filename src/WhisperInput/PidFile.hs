@@ -61,17 +61,18 @@ removePidFile pidPath =
 
 checkSocketLock :: FilePath -> IO LockStatus
 checkSocketLock socketPath = do
-  socketExists <- doesFileExist socketPath
-  if not socketExists
-    then return NoLock
-    else do
-      let pidPath = getPidFilePath socketPath
-      maybePid <- readPidFile pidPath
-      case maybePid of
-        Nothing -> return (StaleLock 0)
-        Just pid -> do
-          alive <- isProcessAlive pid
-          return $ if alive then ActiveLock pid else StaleLock pid
+  let pidPath = getPidFilePath socketPath
+  maybePid <- readPidFile pidPath
+  case maybePid of
+    Just pid -> do
+      alive <- isProcessAlive pid
+      return $ if alive then ActiveLock pid else StaleLock pid
+    Nothing -> do
+      -- No valid PID file, check if socket exists (orphaned)
+      socketExists <- doesFileExist socketPath
+      if socketExists
+        then return (StaleLock 0) -- Orphaned socket
+        else return NoLock
 
 cleanupStaleLock :: FilePath -> IO ()
 cleanupStaleLock socketPath = do

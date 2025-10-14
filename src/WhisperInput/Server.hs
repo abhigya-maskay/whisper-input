@@ -5,7 +5,7 @@ where
 
 import Control.Concurrent.Async (race)
 import Control.Concurrent.MVar (MVar, takeMVar)
-import Control.Exception (bracket, catch, throw)
+import Control.Exception (SomeException, bracket, catch, throw, try)
 import qualified Data.ByteString as BS
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -88,13 +88,19 @@ acceptLoop serverSock daemonHandle shutdownVar = do
 
 bindSocket :: FilePath -> IO Socket
 bindSocket socketPath = do
-  sock <- Socket.socket AF_UNIX Stream 0
-  let addr = SockAddrUnix socketPath
-  Socket.bind sock addr
-  Socket.listen sock 5
-  putStrLn $ "Server: Socket bound to " ++ socketPath
-  putStrLn "Server: Listening for connections (queue: 5)"
-  return sock
+  result <- try $ do
+    sock <- Socket.socket AF_UNIX Stream 0
+    let addr = SockAddrUnix socketPath
+    Socket.bind sock addr
+    Socket.listen sock 5
+    putStrLn $ "Server: Socket bound to " ++ socketPath
+    putStrLn "Server: Listening for connections (queue: 5)"
+    return sock
+  case result of
+    Right sock -> return sock
+    Left (exc :: SomeException) -> do
+      putStrLn $ "Server: Failed to bind socket: " ++ show exc
+      throw exc
 
 runServer :: FilePath -> MVar () -> IO ()
 runServer socketPath shutdownVar = do

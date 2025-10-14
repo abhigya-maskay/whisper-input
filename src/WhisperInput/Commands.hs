@@ -4,7 +4,7 @@ module WhisperInput.Commands
 where
 
 import Control.Concurrent.MVar (newEmptyMVar, putMVar)
-import Control.Exception (bracket_)
+import Control.Exception (SomeException, bracket_, catch)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -101,7 +101,10 @@ startDaemon = do
         putStrLn "Daemon: Stopped, cleaning up..."
         cleanupOnExit socketPath
     )
-    (runServer socketPath shutdownVar)
+    ( runServer socketPath shutdownVar
+        `catch` \(exc :: SomeException) -> do
+          hPutStrLn stderr $ "Daemon: Server error: " ++ show exc
+    )
 
 runCommand :: Command -> IO ()
 runCommand Daemon = startDaemon

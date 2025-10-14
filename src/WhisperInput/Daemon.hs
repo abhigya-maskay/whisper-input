@@ -31,9 +31,9 @@ data DaemonResponse
 
 handleCommand :: DaemonState -> DaemonCommand -> (DaemonState, DaemonResponse)
 handleCommand Idle Start = (Recording, Ack)
-handleCommand Idle Stop = (Idle, Ack)
+handleCommand Idle Stop = (Idle, Error "Already stopped")
 handleCommand Idle Status = (Idle, StateReport Idle)
-handleCommand Recording Start = (Recording, Ack)
+handleCommand Recording Start = (Recording, Error "Already recording")
 handleCommand Recording Stop = (Idle, Ack)
 handleCommand Recording Status = (Recording, StateReport Recording)
 
