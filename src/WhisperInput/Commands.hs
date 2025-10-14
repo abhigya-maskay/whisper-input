@@ -9,7 +9,8 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Exit
-import System.IO (hPutStrLn, stderr)
+import System.IO (BufferMode (..), hPutStrLn, hSetBuffering, stderr, stdout)
+import System.Posix.Process (getProcessID)
 import System.Posix.Signals (Handler (..), installHandler, sigINT, sigTERM)
 import WhisperInput.CLI (Command (..))
 import WhisperInput.IPC (IPCError (..), sendCommand)
@@ -65,8 +66,12 @@ handleAckResponse commandName response
 
 startDaemon :: IO ()
 startDaemon = do
+  hSetBuffering stdout LineBuffering
+
   socketPath <- getSocketPath
   let pidPath = getPidFilePath socketPath
+
+  putStrLn $ "Daemon: Starting on socket " ++ socketPath
 
   lockStatus <- checkSocketLock socketPath
   case lockStatus of
@@ -78,13 +83,24 @@ startDaemon = do
     NoLock -> return ()
 
   shutdownVar <- newEmptyMVar
-  let shutdownHandler = Catch (putMVar shutdownVar ())
+  let shutdownHandler =
+        Catch
+          ( do
+              putStrLn "Daemon: Shutdown signal received"
+              putMVar shutdownVar ()
+          )
   _ <- installHandler sigINT shutdownHandler Nothing
   _ <- installHandler sigTERM shutdownHandler Nothing
 
+  pid <- getProcessID
+  putStrLn $ "Daemon: Ready (PID: " ++ show pid ++ ")"
+
   bracket_
     (writePidFile pidPath)
-    (cleanupOnExit socketPath)
+    ( do
+        putStrLn "Daemon: Stopped, cleaning up..."
+        cleanupOnExit socketPath
+    )
     (runServer socketPath shutdownVar)
 
 runCommand :: Command -> IO ()

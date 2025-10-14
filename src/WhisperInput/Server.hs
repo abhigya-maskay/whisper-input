@@ -63,10 +63,13 @@ handleConnection :: DaemonHandle -> Socket -> IO ()
 handleConnection daemonHandle clientSock =
   ( do
       commandText <- recvLine clientSock
+      putStrLn $ "Command: Received " ++ T.unpack commandText
       daemonResponse <- case parseCommand commandText of
         Left errMsg -> return (Error errMsg)
         Right cmd -> processDaemonCommand daemonHandle cmd
-      sendLine clientSock (formatResponse daemonResponse)
+      let responseText = formatResponse daemonResponse
+      sendLine clientSock responseText
+      putStrLn $ "Response: Sent " ++ T.unpack responseText
   )
     `catch` \(_ :: IOError) -> return ()
 
@@ -76,9 +79,11 @@ acceptLoop serverSock daemonHandle shutdownVar = do
   case result of
     Left () -> return ()
     Right (clientSock, _clientAddr) -> do
+      putStrLn "Client: Connected"
       handleConnection daemonHandle clientSock
         `catch` \(_ :: IOError) -> return ()
       Socket.close clientSock
+      putStrLn "Client: Disconnected"
       acceptLoop serverSock daemonHandle shutdownVar
 
 bindSocket :: FilePath -> IO Socket
@@ -87,6 +92,8 @@ bindSocket socketPath = do
   let addr = SockAddrUnix socketPath
   Socket.bind sock addr
   Socket.listen sock 5
+  putStrLn $ "Server: Socket bound to " ++ socketPath
+  putStrLn "Server: Listening for connections (queue: 5)"
   return sock
 
 runServer :: FilePath -> MVar () -> IO ()
