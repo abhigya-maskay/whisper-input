@@ -3,11 +3,14 @@ module WhisperInput.Commands
   )
 where
 
+import Control.Concurrent.MVar (newEmptyMVar, putMVar)
+import Control.Exception (bracket_)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import System.Exit
 import System.IO (hPutStrLn, stderr)
+import System.Posix.Signals (Handler (..), installHandler, sigINT, sigTERM)
 import WhisperInput.CLI (Command (..))
 import WhisperInput.IPC (IPCError (..), sendCommand)
 import WhisperInput.PidFile
@@ -74,9 +77,15 @@ startDaemon = do
       cleanupStaleLock socketPath
     NoLock -> return ()
 
-  writePidFile pidPath
-  runServer socketPath
-  cleanupOnExit socketPath
+  shutdownVar <- newEmptyMVar
+  let shutdownHandler = Catch (putMVar shutdownVar ())
+  _ <- installHandler sigINT shutdownHandler Nothing
+  _ <- installHandler sigTERM shutdownHandler Nothing
+
+  bracket_
+    (writePidFile pidPath)
+    (cleanupOnExit socketPath)
+    (runServer socketPath shutdownVar)
 
 runCommand :: Command -> IO ()
 runCommand Daemon = startDaemon

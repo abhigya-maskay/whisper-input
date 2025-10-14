@@ -3,6 +3,8 @@ module WhisperInput.Server
   )
 where
 
+import Control.Concurrent.Async (race)
+import Control.Concurrent.MVar (MVar, takeMVar)
 import Control.Exception (bracket, catch, throw)
 import qualified Data.ByteString as BS
 import Data.Text (Text)
@@ -68,13 +70,16 @@ handleConnection daemonHandle clientSock =
   )
     `catch` \(_ :: IOError) -> return ()
 
-acceptLoop :: Socket -> DaemonHandle -> IO ()
-acceptLoop serverSock daemonHandle = do
-  (clientSock, _clientAddr) <- Socket.accept serverSock
-  handleConnection daemonHandle clientSock
-    `catch` \(_ :: IOError) -> return ()
-  Socket.close clientSock
-  acceptLoop serverSock daemonHandle
+acceptLoop :: Socket -> DaemonHandle -> MVar () -> IO ()
+acceptLoop serverSock daemonHandle shutdownVar = do
+  result <- race (takeMVar shutdownVar) (Socket.accept serverSock)
+  case result of
+    Left () -> return ()
+    Right (clientSock, _clientAddr) -> do
+      handleConnection daemonHandle clientSock
+        `catch` \(_ :: IOError) -> return ()
+      Socket.close clientSock
+      acceptLoop serverSock daemonHandle shutdownVar
 
 bindSocket :: FilePath -> IO Socket
 bindSocket socketPath = do
@@ -84,10 +89,10 @@ bindSocket socketPath = do
   Socket.listen sock 5
   return sock
 
-runServer :: FilePath -> IO ()
-runServer socketPath = do
+runServer :: FilePath -> MVar () -> IO ()
+runServer socketPath shutdownVar = do
   daemonHandle <- newDaemon
   bracket
     (bindSocket socketPath)
     Socket.close
-    (`acceptLoop` daemonHandle)
+    (\sock -> acceptLoop sock daemonHandle shutdownVar)
