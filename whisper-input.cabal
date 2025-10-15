@@ -22,8 +22,9 @@ library
     exposed-modules:  WhisperInput.SocketPath
                     , WhisperInput.CLI
                     , WhisperInput.Commands
-                    , WhisperInput.IPC
                     , WhisperInput.Daemon
+                    , WhisperInput.DaemonRunner
+                    , WhisperInput.IPC
                     , WhisperInput.PidFile
                     , WhisperInput.Protocol
                     , WhisperInput.Transport
