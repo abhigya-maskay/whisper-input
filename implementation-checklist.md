@@ -20,9 +20,12 @@
 - [x] Add unit tests with synthetic evdev events
 
 ## 5. Develop Audio Recorder
-- [ ] Use `sounddevice` to capture PCM in start/stop lifecycle writing to buffer or temp file
-- [ ] Support configurable sample rate, channels, and optional silence trimming
-- [ ] Cover with mocked tests
+- [x] Design recorder lifecycle around `sounddevice.InputStream`, capturing PCM chunks into an in-memory buffer while the stream is active
+- [x] Implement `start()` to configure stream parameters from config, open the stream, and begin queuing audio frames on a background thread-safe queue
+- [x] Implement `stop()` to flush queued frames, optionally trim leading/trailing silence via configurable threshold/duration, and persist audio to a temporary WAV using the stdlib `wave` module
+- [x] Ensure resource cleanup (closing stream, releasing buffers) and surface errors as `RuntimeError` with descriptive messages
+- [x] Expose `list_devices()` by calling `sounddevice.query_devices()`, filtering for input-capable devices, and returning `{index: name}` map with handling for backend errors
+- [x] Add unit tests using `pytest` and `unittest.mock` to simulate `sounddevice` streams, silence trimming behavior, device enumeration, and file creation without touching real hardware
 
 ## 6. Integrate Faster Whisper Transcriber
 - [ ] Wrap `WhisperModel` with lazy initialization, configurable device/compute type, and thread-executor transcription
