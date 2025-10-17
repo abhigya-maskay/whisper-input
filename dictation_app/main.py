@@ -9,6 +9,7 @@ import typer
 
 from dictation_app.button_listener import ButtonListener
 from dictation_app.config import (
+    Config,
     ConfigError,
     discover_audio_devices,
     discover_input_devices,
@@ -23,6 +24,9 @@ app = typer.Typer(help="Hyprland dictation helper via Faster Whisper")
 
 logger = logging.getLogger(__name__)
 
+VALID_MODELS = ("tiny", "base", "small", "medium", "large")
+VALID_DEVICES = ("cpu", "cuda", "auto")
+
 
 def _setup_logging(verbose: bool = False) -> None:
     """Setup logging configuration."""
@@ -30,6 +34,72 @@ def _setup_logging(verbose: bool = False) -> None:
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+
+def _merge_config_overrides(
+    cfg: Config,
+    *,
+    audio_device: int | None = None,
+    model: str | None = None,
+    device: str | None = None,
+    input_device: str | None = None,
+    dry_run: bool = False,
+) -> Config:
+    """Apply CLI overrides to configuration.
+
+    CLI options take precedence over config file values.
+
+    Args:
+        cfg: Base configuration from file
+        audio_device: Override audio device by index
+        model: Override model name
+        device: Override compute device
+        input_device: Override input device path
+        dry_run: Enable dry-run mode in injector
+
+    Returns:
+        Updated Config instance
+
+    Raises:
+        ConfigError: If override values are invalid
+    """
+    if audio_device is not None:
+        available = discover_audio_devices()
+        valid_indices = {d["index"] for d in available}
+        if audio_device not in valid_indices:
+            available_str = ", ".join(str(d["index"]) for d in available)
+            raise ConfigError(
+                f"Invalid audio device index {audio_device}. "
+                f"Available: {available_str or 'none'}"
+            )
+        logger.debug("Overriding audio device to index %d", audio_device)
+        cfg.audio.device = audio_device
+
+    if model is not None:
+        if model not in VALID_MODELS:
+            raise ConfigError(
+                f"Invalid model '{model}'. Must be one of: {', '.join(VALID_MODELS)}"
+            )
+        logger.debug("Overriding model to '%s'", model)
+        cfg.model.name = model
+
+    if device is not None:
+        if device not in VALID_DEVICES:
+            raise ConfigError(
+                f"Invalid device '{device}'. Must be one of: {', '.join(VALID_DEVICES)}"
+            )
+        logger.debug("Overriding compute device to '%s'", device)
+        cfg.model.device = device
+
+    if input_device is not None:
+        logger.debug("Overriding input device to '%s'", input_device)
+        cfg.input.device = input_device
+
+    if dry_run:
+        logger.debug("Enabling dry-run mode")
+        cfg.injector.dry_run = True
+
+    return cfg
 
 
 @app.command()
@@ -40,6 +110,21 @@ def run(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Enable verbose logging"
     ),
+    audio_device: int | None = typer.Option(
+        None, "--audio-device", "-a", help="Override audio device by index"
+    ),
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Override model (tiny, base, small, medium, large)"
+    ),
+    device: str | None = typer.Option(
+        None, "--device", help="Override compute device (cpu, cuda, auto)"
+    ),
+    input_device: str | None = typer.Option(
+        None, "--input-device", help="Override input device path"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Run in dry-run mode without text injection"
+    ),
 ) -> None:
     """Run the dictation helper daemon."""
     _setup_logging(verbose)
@@ -47,6 +132,15 @@ def run(
         cfg = load_config(config)
         logger.info("Loaded config from: %s", config or "default locations")
         logger.debug("Config: %s", cfg)
+
+        cfg = _merge_config_overrides(
+            cfg,
+            audio_device=audio_device,
+            model=model,
+            device=device,
+            input_device=input_device,
+            dry_run=dry_run,
+        )
         cfg.validate()
         logger.info("Configuration validated successfully")
 
@@ -57,6 +151,7 @@ def run(
             channels=cfg.audio.channels,
             chunk_size=cfg.audio.chunk_size,
             trim_silence=True,
+            device=cfg.audio.device,
         )
         transcriber = Transcriber(
             model_name=cfg.model.name,
@@ -152,12 +247,32 @@ def dry_run(
         None, "--config", help="Path to configuration file"
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v"),
+    audio_device: int | None = typer.Option(
+        None, "--audio-device", "-a", help="Override audio device by index"
+    ),
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Override model (tiny, base, small, medium, large)"
+    ),
+    device: str | None = typer.Option(
+        None, "--device", help="Override compute device (cpu, cuda, auto)"
+    ),
+    input_device: str | None = typer.Option(
+        None, "--input-device", help="Override input device path"
+    ),
 ) -> None:
     """Run a dry-run without injection (for testing)."""
     _setup_logging(verbose)
     try:
         cfg = load_config(config)
         logger.info("Loaded config from: %s", config or "default locations")
+        cfg = _merge_config_overrides(
+            cfg,
+            audio_device=audio_device,
+            model=model,
+            device=device,
+            input_device=input_device,
+            dry_run=True,
+        )
         cfg.validate()
         logger.info("Configuration validated successfully (dry-run mode)")
         logger.info("Would start orchestrator with dry-run injector")

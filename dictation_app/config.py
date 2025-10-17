@@ -50,6 +50,7 @@ class AudioConfig:
     sample_rate: int = 16000
     channels: int = 1
     chunk_size: int = 4096
+    device: int | None = None
 
 
 @dataclass

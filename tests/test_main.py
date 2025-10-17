@@ -231,3 +231,302 @@ class TestDryRunCommand:
 
         result = runner.invoke(app, ["dry-run"])
         assert result.exit_code == 1
+
+
+class TestRunCommandOverrides:
+    """Tests for run command CLI overrides."""
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_audio_device_override(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with audio device override."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        with patch("dictation_app.main.discover_audio_devices") as mock_discover:
+            mock_discover.return_value = [
+                {"index": 0, "name": "Device 0"},
+                {"index": 1, "name": "Device 1"},
+            ]
+
+            result = runner.invoke(app, ["run", "--audio-device", "1"])
+            assert result.exit_code == 0
+            assert mock_cfg.audio.device == 1
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_invalid_audio_device(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with invalid audio device override."""
+        mock_cfg = MagicMock()
+        mock_load_config.return_value = mock_cfg
+
+        with patch("dictation_app.main.discover_audio_devices") as mock_discover:
+            mock_discover.return_value = [{"index": 0, "name": "Device 0"}]
+
+            result = runner.invoke(app, ["run", "--audio-device", "999"])
+            assert result.exit_code == 1
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_model_override(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with model override."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        result = runner.invoke(app, ["run", "--model", "small"])
+        assert result.exit_code == 0
+        assert mock_cfg.model.name == "small"
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_invalid_model(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with invalid model override."""
+        mock_cfg = MagicMock()
+        mock_load_config.return_value = mock_cfg
+
+        result = runner.invoke(app, ["run", "--model", "invalid_model"])
+        assert result.exit_code == 1
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_device_override(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with compute device override."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        result = runner.invoke(app, ["run", "--device", "cuda"])
+        assert result.exit_code == 0
+        assert mock_cfg.model.device == "cuda"
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_invalid_device(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with invalid compute device override."""
+        mock_cfg = MagicMock()
+        mock_load_config.return_value = mock_cfg
+
+        result = runner.invoke(app, ["run", "--device", "invalid_device"])
+        assert result.exit_code == 1
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_input_device_override(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with input device override."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.input.device = "/dev/input/by-id/old"
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        result = runner.invoke(app, ["run", "--input-device", "/dev/input/by-id/new"])
+        assert result.exit_code == 0
+        assert mock_cfg.input.device == "/dev/input/by-id/new"
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_with_dry_run_flag(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with --dry-run flag propagates to injector."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.injector.dry_run = False
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        result = runner.invoke(app, ["run", "--dry-run"])
+        assert result.exit_code == 0
+        assert mock_cfg.injector.dry_run is True
+
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
+    @patch("dictation_app.main.load_config")
+    def test_run_command_multiple_overrides(
+        self, mock_load_config, mock_bl, mock_ar, mock_tr, mock_inj, mock_orch, mock_asyncio_run
+    ):
+        """Test run command with multiple overrides."""
+        mock_cfg = MagicMock()
+        mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.input.device = "/dev/input/old"
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.audio.device = None
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.injector.dry_run = False
+        mock_cfg.orchestrator = MagicMock()
+        mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
+
+        with patch("dictation_app.main.discover_audio_devices") as mock_discover:
+            mock_discover.return_value = [{"index": 0}, {"index": 1}]
+
+            result = runner.invoke(
+                app,
+                [
+                    "run",
+                    "--model",
+                    "small",
+                    "--device",
+                    "cuda",
+                    "--audio-device",
+                    "1",
+                    "--input-device",
+                    "/dev/input/new",
+                    "--dry-run",
+                ],
+            )
+            assert result.exit_code == 0
+            assert mock_cfg.model.name == "small"
+            assert mock_cfg.model.device == "cuda"
+            assert mock_cfg.audio.device == 1
+            assert mock_cfg.input.device == "/dev/input/new"
+            assert mock_cfg.injector.dry_run is True

@@ -35,6 +35,7 @@ class AudioRecorder:
         trim_silence: bool = False,
         silence_threshold: float = 0.02,
         silence_duration: float = 0.2,
+        device: int | None = None,
     ):
         """Initialize audio recorder.
 
@@ -45,6 +46,7 @@ class AudioRecorder:
             trim_silence: Whether to trim leading/trailing silence
             silence_threshold: RMS threshold for silence detection (0-1 range)
             silence_duration: Minimum silence duration in seconds to trim
+            device: Audio device index (None for default)
         """
         if sample_rate <= 0:
             raise ValueError("sample_rate must be positive")
@@ -59,6 +61,7 @@ class AudioRecorder:
         self.trim_silence = trim_silence
         self.silence_threshold = silence_threshold
         self.silence_duration = silence_duration
+        self.device = device
 
         self._state = _RecorderState.IDLE
         self._stream = None
@@ -66,7 +69,10 @@ class AudioRecorder:
         self._temp_file = None
 
         logger.info(
-            "AudioRecorder initialized: %d Hz, %d channels", sample_rate, channels
+            "AudioRecorder initialized: %d Hz, %d channels, device=%s",
+            sample_rate,
+            channels,
+            device if device is not None else "default",
         )
 
     def __enter__(self):
@@ -97,6 +103,7 @@ class AudioRecorder:
         try:
             self._buffer.clear()
             self._stream = sounddevice.InputStream(
+                device=self.device,
                 samplerate=self.sample_rate,
                 channels=self.channels,
                 blocksize=self.chunk_size,
