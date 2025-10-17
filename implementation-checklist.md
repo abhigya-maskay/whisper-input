@@ -46,8 +46,8 @@
 - [x] Validate transitions with pytest-asyncio tests (22 tests for orchestrator, 160 total passing)
 
 ## 9. Wire CLI Entry Point
-- [ ] Connect Typer commands to orchestrator start, helper diagnostics, and config overrides
-- [ ] Expose runnable script via Nix flake outputs (`packages.${system}.dictation-app`)
+- [x] Connect Typer commands to orchestrator start, helper diagnostics, and config overrides
+- [x] Expose runnable script via Nix flake outputs (`packages.${system}.dictation-app`)
 
 ## 10. Testing and QA
 - [ ] Finalize unit/integration tests and hook into `flake.nix` checks
