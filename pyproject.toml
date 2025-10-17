@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dictation-app"
+version = "0.1.0"
+description = "Hyprland dictation helper via Faster Whisper"
+dependencies = [
+  "faster-whisper",
+  "numpy",
+  "sounddevice",
+  "evdev",
+  "typer",
+  "onnxruntime",
+  "tomli",
+]
