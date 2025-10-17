@@ -61,10 +61,21 @@ class TestTranscriberLazyLoading:
         with patch("faster_whisper.WhisperModel") as mock_model_class:
             mock_instance = MagicMock()
             mock_model_class.return_value = mock_instance
+            
+            # Create mock segment object
+            mock_seg = MagicMock()
+            mock_seg.text = "hello world"
+            mock_seg.start = 0.0
+            mock_seg.end = 1.0
+            mock_seg.avg_logprob = 0.8
+            
+            # Create mock info object
+            mock_info = MagicMock()
+            mock_info.language = "en"
+            
             mock_instance.transcribe.return_value = (
-                "hello world",
-                [{"text": "hello world", "start": 0.0, "end": 1.0}],
-                "en",
+                iter([mock_seg]),  # generator
+                mock_info,
             )
 
             transcriber = Transcriber()
@@ -88,10 +99,21 @@ class TestTranscriberLazyLoading:
         with patch("faster_whisper.WhisperModel") as mock_model_class:
             mock_instance = MagicMock()
             mock_model_class.return_value = mock_instance
+            
+            # Create mock segment object
+            mock_seg = MagicMock()
+            mock_seg.text = "test"
+            mock_seg.start = 0.0
+            mock_seg.end = 1.0
+            mock_seg.avg_logprob = 0.8
+            
+            # Create mock info object
+            mock_info = MagicMock()
+            mock_info.language = "en"
+            
             mock_instance.transcribe.return_value = (
-                "test",
-                [{"text": "test", "start": 0.0, "end": 1.0}],
-                "en",
+                iter([mock_seg]),  # generator
+                mock_info,
             )
 
             transcriber = Transcriber()
@@ -152,10 +174,21 @@ class TestTranscriberExecution:
         with patch("faster_whisper.WhisperModel") as mock_model_class:
             mock_instance = MagicMock()
             mock_model_class.return_value = mock_instance
+            
+            # Create mock segment object
+            mock_seg = MagicMock()
+            mock_seg.text = "hello world"
+            mock_seg.start = 0.0
+            mock_seg.end = 1.0
+            mock_seg.avg_logprob = 0.8
+            
+            # Create mock info object
+            mock_info = MagicMock()
+            mock_info.language = "en"
+            
             mock_instance.transcribe.return_value = (
-                "hello world",
-                [{"text": "hello world", "start": 0.0, "end": 1.0}],
-                "en",
+                iter([mock_seg]),  # generator
+                mock_info,
             )
 
             transcriber = Transcriber()
@@ -345,10 +378,21 @@ class TestTranscriberShutdown:
         with patch("faster_whisper.WhisperModel") as mock_model_class:
             mock_instance = MagicMock()
             mock_model_class.return_value = mock_instance
+            
+            # Create mock segment object
+            mock_seg = MagicMock()
+            mock_seg.text = "test"
+            mock_seg.start = 0.0
+            mock_seg.end = 1.0
+            mock_seg.avg_logprob = 0.8
+            
+            # Create mock info object
+            mock_info = MagicMock()
+            mock_info.language = "en"
+            
             mock_instance.transcribe.return_value = (
-                "test",
-                [{"text": "test", "start": 0.0, "end": 1.0}],
-                "en",
+                iter([mock_seg]),  # generator
+                mock_info,
             )
 
             transcriber = Transcriber()

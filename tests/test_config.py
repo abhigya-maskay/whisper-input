@@ -240,7 +240,7 @@ class TestConfigValidation:
     def test_validate_audio_device_no_devices(self, mock_discover):
         """Test validation when no audio devices found."""
         mock_discover.return_value = []
-        validate_audio_device(16000, 1)  # Should not raise
+        validate_audio_device(16000, 1, None)  # Should not raise
 
     @patch("dictation_app.config.discover_audio_devices")
     def test_validate_audio_device_unsupported_config(self, mock_discover):
@@ -250,7 +250,7 @@ class TestConfigValidation:
         ]
 
         with pytest.raises(ConfigError, match="No audio device supports"):
-            validate_audio_device(16000, 2)
+            validate_audio_device(16000, 2, None)
 
     @patch("dictation_app.config.discover_audio_devices")
     def test_validate_audio_device_success(self, mock_discover):
@@ -259,7 +259,7 @@ class TestConfigValidation:
             {"index": 0, "name": "Device", "channels": 2, "sample_rate": 48000}
         ]
 
-        validate_audio_device(16000, 1)  # Should not raise
+        validate_audio_device(16000, 1, None)  # Should not raise
 
 
 class TestDiscoveryFunctions:

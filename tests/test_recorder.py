@@ -359,6 +359,69 @@ class TestDeviceDiscovery:
         assert len(devices) == 1
         assert 0 in devices
 
+
+class TestDeviceResolution:
+    """Tests for resolving configured audio device selections."""
+
+    @patch("dictation_app.recorder.sounddevice.InputStream")
+    @patch("dictation_app.recorder.sounddevice.query_devices")
+    def test_named_device_exact_match(self, mock_query, mock_input_stream):
+        """Recorder resolves exact device name to index."""
+        mock_query.return_value = [
+            {"name": "Built-in Mic", "max_input_channels": 2},
+            {"name": "Yeti X: USB Audio", "max_input_channels": 2},
+        ]
+        mock_stream_instance = MagicMock()
+        mock_input_stream.return_value = mock_stream_instance
+
+        recorder = AudioRecorder(device="Yeti X: USB Audio")
+        recorder.start()
+
+        mock_query.assert_called_once()
+        args, kwargs = mock_input_stream.call_args
+        assert kwargs["device"] == 1
+        mock_stream_instance.start.assert_called_once()
+        recorder.close()
+
+    @patch("dictation_app.recorder.sounddevice.InputStream")
+    @patch("dictation_app.recorder.sounddevice.query_devices")
+    def test_named_device_partial_match(self, mock_query, mock_input_stream):
+        """Recorder falls back to partial match when exact not found."""
+        mock_query.return_value = [
+            {"name": "USB Audio Interface", "max_input_channels": 2},
+            {"name": "Another Device", "max_input_channels": 1},
+        ]
+        mock_stream_instance = MagicMock()
+        mock_input_stream.return_value = mock_stream_instance
+
+        recorder = AudioRecorder(device="USB Audio")
+        recorder.start()
+
+        mock_query.assert_called_once()
+        args, kwargs = mock_input_stream.call_args
+        assert kwargs["device"] == 0
+        recorder.close()
+
+    @patch("dictation_app.recorder.sounddevice.InputStream")
+    @patch("dictation_app.recorder.sounddevice.query_devices")
+    def test_named_device_not_found(self, mock_query, mock_input_stream):
+        """Recorder logs warning and uses default when device missing."""
+        mock_query.return_value = [
+            {"name": "Built-in Mic", "max_input_channels": 2},
+        ]
+        mock_stream_instance = MagicMock()
+        mock_input_stream.return_value = mock_stream_instance
+
+        recorder = AudioRecorder(device="Missing Device")
+
+        with patch("dictation_app.recorder.logger") as mock_logger:
+            recorder.start()
+            mock_logger.warning.assert_called()
+
+        args, kwargs = mock_input_stream.call_args
+        assert kwargs["device"] is None
+        recorder.close()
+
     @patch("dictation_app.recorder.sounddevice.query_devices")
     def test_list_devices_no_input_devices(self, mock_query):
         """Test list_devices with no input devices."""

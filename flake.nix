@@ -9,7 +9,34 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowUnfree = true;
+            cudaSupport = true;
+          };
+          overlays = [
+            (final: prev: {
+              ctranslate2 = prev.ctranslate2.override {
+                withCUDA = true;
+                withCuDNN = true;
+              };
+
+              python312 = prev.python312.override {
+                packageOverrides = self: super: {
+                  ctranslate2 = super.ctranslate2.overridePythonAttrs (old: {
+                    doCheck = false;
+                    nativeCheckInputs = [];
+                  });
+
+                  faster-whisper = super.faster-whisper.overridePythonAttrs (old: {
+                    propagatedBuildInputs = (old.propagatedBuildInputs or []) ++ [ self.ctranslate2 ];
+                  });
+                };
+              };
+            })
+          ];
+        };
         python = pkgs.python312;
         pythonPkgs = python.pkgs;
       in
@@ -28,6 +55,8 @@
             faster-whisper
             numpy
             sounddevice
+            soundfile
+            scipy
             evdev
             typer
             onnxruntime
@@ -47,6 +76,8 @@
               faster-whisper
               numpy
               sounddevice
+              soundfile
+              scipy
               evdev
               typer
               onnxruntime
@@ -74,11 +105,17 @@
         };
 
         devShells.default = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            cudaPackages.cudatoolkit
+            cudaPackages.cudnn
+          ];
           buildInputs = with pkgs; [
             (python.withPackages (ps: with ps; [
               faster-whisper
               numpy
               sounddevice
+              soundfile
+              scipy
               evdev
               typer
               onnxruntime
@@ -101,9 +138,17 @@
             pre-commit
           ];
 
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+            pkgs.cudaPackages.cudatoolkit
+            pkgs.cudaPackages.cudnn
+          ];
+
           shellHook = ''
             echo "Dictation Helper dev environment loaded"
             echo "Python: $(python --version)"
+            export CUDA_PATH=${pkgs.cudaPackages.cudatoolkit}
+            export CUDA_HOME=${pkgs.cudaPackages.cudatoolkit}
+            export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath [ pkgs.cudaPackages.cudatoolkit pkgs.cudaPackages.cudnn ]}:$LD_LIBRARY_PATH
             pre-commit install --install-hooks > /dev/null 2>&1 || true
           '';
         };

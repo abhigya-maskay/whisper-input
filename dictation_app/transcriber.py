@@ -186,18 +186,22 @@ class Transcriber:
                 beam_size=self.beam_size,
             )
 
-            segments = [
-                TranscriptionSegment(
-                    text=seg["text"],
-                    start=seg["start"],
-                    end=seg["end"],
-                    confidence=seg.get("confidence", 0.0),
+            segments_generator, info = result
+            segments = []
+            primary_text = ""
+            
+            for seg in segments_generator:
+                segments.append(
+                    TranscriptionSegment(
+                        text=seg.text,
+                        start=seg.start,
+                        end=seg.end,
+                        confidence=seg.avg_logprob or 0.0,
+                    )
                 )
-                for seg in result[1]
-            ]
+                primary_text += seg.text
 
-            primary_text = result[0]
-            detected_language = result[2] if len(result) > 2 else language
+            detected_language = language if language != "auto" else info.language
 
             primary_text = self._normalize_text(primary_text)
 

@@ -11,6 +11,8 @@ dependencies = [
   "faster-whisper",
   "numpy",
   "sounddevice",
+  "soundfile",
+  "scipy",
   "evdev",
   "typer",
   "onnxruntime",

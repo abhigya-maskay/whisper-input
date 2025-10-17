@@ -50,7 +50,7 @@ class AudioConfig:
     sample_rate: int = 16000
     channels: int = 1
     chunk_size: int = 4096
-    device: int | None = None
+    device: int | str | None = None
 
 
 @dataclass
@@ -173,6 +173,7 @@ class Config:
             validate_audio_device(
                 self.audio.sample_rate,
                 self.audio.channels,
+                self.audio.device,
             )
             validate_model_config(self.model)
             validate_injector_config(self.injector)
@@ -200,7 +201,11 @@ def _resolve_config_path(
     candidates = []
 
     if cli_path:
-        candidates.append(cli_path)
+        cli_path = Path(cli_path)
+        if cli_path.exists():
+            logger.info("Using config file: %s", cli_path.resolve())
+            return cli_path.resolve()
+        raise ConfigError(f"Config file not found: {cli_path}")
 
     if env_path := env.get("DICTATION_CONFIG"):
         candidates.append(Path(env_path))
@@ -373,7 +378,7 @@ def validate_input_device(device_path: str) -> None:
         ) from e
 
 
-def validate_audio_device(sample_rate: int, channels: int) -> None:
+def validate_audio_device(sample_rate: int, channels: int, device: int | str | None) -> None:
     """Validate that audio configuration is supported.
 
     Args:
@@ -395,6 +400,8 @@ def validate_audio_device(sample_rate: int, channels: int) -> None:
         return
 
     for dev in devices:
+        if not _device_matches_selection(device, dev):
+            continue
         if dev["channels"] >= channels and dev["sample_rate"] > 0:
             logger.debug(
                 "Audio device validated: %s (%dHz, %d channels)",
@@ -411,6 +418,23 @@ def validate_audio_device(sample_rate: int, channels: int) -> None:
         f"No audio device supports {channels} channels at {sample_rate}Hz\n"
         f"Available devices:\n  {device_list}"
     )
+
+
+def _device_matches_selection(selection: int | str | None, device: dict) -> bool:
+    """Check whether a device matches the selection criteria."""
+
+    if selection is None:
+        return True
+    if isinstance(selection, int):
+        return device["index"] == selection
+
+    normalized = selection.strip().lower()
+    candidate = device.get("name", "").strip().lower()
+
+    if candidate == normalized:
+        return True
+
+    return normalized in candidate
 
 
 def validate_model_config(model_cfg: ModelConfig) -> None:

@@ -13,6 +13,28 @@ from dictation_app.transcriber import Transcriber
 from dictation_app._types import TranscriptionResult, TranscriptionSegment
 
 
+def create_mock_transcribe_result(text="test", language="en", segments=None):
+    """Create mock transcribe result with proper format."""
+    if segments is None:
+        segments = [{"text": text, "start": 0.0, "end": 1.0}]
+    
+    # Create mock segment objects
+    mock_segments = []
+    for seg in segments:
+        mock_seg = MagicMock()
+        mock_seg.text = seg["text"]
+        mock_seg.start = seg["start"]
+        mock_seg.end = seg["end"] 
+        mock_seg.avg_logprob = 0.8
+        mock_segments.append(mock_seg)
+    
+    # Create mock info object
+    mock_info = MagicMock()
+    mock_info.language = language
+    
+    return (iter(mock_segments), mock_info)
+
+
 class TestTranscriberFileHandling:
     """Test transcriber handling of corrupted and invalid audio files."""
 
@@ -57,11 +79,7 @@ class TestTranscriberFileHandling:
             with patch("faster_whisper.WhisperModel") as mock_model_class:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
-                mock_instance.transcribe.return_value = (
-                    "",
-                    [],
-                    "en",
-                )
+                mock_instance.transcribe.return_value = create_mock_transcribe_result("", "en", [])
 
                 transcriber = Transcriber()
                 with patch.object(transcriber, "_load_audio", return_value=np.zeros(0)):
@@ -105,11 +123,7 @@ class TestTranscriberTimeout:
                 mock_model_class.return_value = mock_instance
                 
                 # Simulate long delay - return proper tuple format
-                mock_instance.transcribe.return_value = (
-                    "test",
-                    [{"text": "test", "start": 0.0, "end": 1.0}],
-                    "en",
-                )
+                mock_instance.transcribe.return_value = create_mock_transcribe_result()
 
                 transcriber = Transcriber()
                 
@@ -136,11 +150,7 @@ class TestTranscriberTimeout:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
                 # Return proper tuple with segments
-                mock_instance.transcribe.return_value = (
-                    "test",
-                    [{"text": "test", "start": 0.0, "end": 1.0}],
-                    "en",
-                )
+                mock_instance.transcribe.return_value = create_mock_transcribe_result()
 
                 with patch.object(transcriber, "_load_audio", return_value=np.zeros(16000)):
                     result = await transcriber.transcribe(temp_path)
@@ -195,8 +205,8 @@ class TestTranscriberEdgeCases:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
                 mock_instance.transcribe.side_effect = [
-                    ("hello", [{"text": "hello", "start": 0, "end": 1}], "en"),
-                    ("world", [{"text": "world", "start": 0, "end": 1}], "en"),
+                    create_mock_transcribe_result("hello", "en", [{"text": "hello", "start": 0, "end": 1}]),
+                    create_mock_transcribe_result("world", "en", [{"text": "world", "start": 0, "end": 1}]),
                 ]
 
                 transcriber = Transcriber()
@@ -232,10 +242,9 @@ class TestTranscriberSegmentHandling:
             with patch("faster_whisper.WhisperModel") as mock_model_class:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
-                mock_instance.transcribe.return_value = (
-                    "single segment",
-                    [{"text": "single segment", "start": 0.0, "end": 1.5}],
-                    "en",
+                mock_instance.transcribe.return_value = create_mock_transcribe_result(
+                    "single segment", "en", 
+                    [{"text": "single segment", "start": 0.0, "end": 1.5}]
                 )
 
                 transcriber = Transcriber()
@@ -261,13 +270,12 @@ class TestTranscriberSegmentHandling:
             with patch("faster_whisper.WhisperModel") as mock_model_class:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
-                mock_instance.transcribe.return_value = (
-                    "hello world",
+                mock_instance.transcribe.return_value = create_mock_transcribe_result(
+                    "hello world", "en",
                     [
                         {"text": "hello", "start": 0.0, "end": 0.5},
                         {"text": "world", "start": 0.5, "end": 1.0},
-                    ],
-                    "en",
+                    ]
                 )
 
                 transcriber = Transcriber()
@@ -294,7 +302,7 @@ class TestTranscriberSegmentHandling:
             with patch("faster_whisper.WhisperModel") as mock_model_class:
                 mock_instance = MagicMock()
                 mock_model_class.return_value = mock_instance
-                mock_instance.transcribe.return_value = ("", [], "en")
+                mock_instance.transcribe.return_value = create_mock_transcribe_result("", "en", [])
 
                 transcriber = Transcriber()
                 

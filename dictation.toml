@@ -1,0 +1,42 @@
+[input]
+device = "/dev/input/by-id/usb-MoErgo_Glove80_Left_moergo.com:GLV80-D165CFC1D344ADC4-event-kbd"
+key_code = "KEY_F9"
+
+[audio]
+sample_rate = 44100
+channels = 1
+chunk_size = 4096
+device = "Yeti X: USB Audio"
+
+[model]
+name = "large-v2"
+device = "cuda"
+compute_type = "float16"
+model_directory = "/home/ave70011/.cache/whisper"
+beam_size = 5
+
+[injector]
+backend = "wtype"
+clipboard_mode = false
+typing_delay = 50
+use_newline = false
+timeout = 10.0
+dry_run = false
+
+[transcription]
+timeout = 30.0
+language = "en"
+noise_reduction = false
+normalize_text = true
+lowercase = false
+capitalize_first = true
+
+[orchestrator]
+max_retries = 3
+error_recovery_delay = 1.0
+silence_recovery_timeout = 5.0
+recording_timeout = 300.0
+
+[general]
+verbose = false
+debug = false
