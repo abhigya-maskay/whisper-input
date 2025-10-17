@@ -15,9 +15,9 @@
 - [x] Expose helper commands `--list-inputs` and `--list-audio`
 
 ## 4. Build Button Listener Module
-- [ ] Implement asyncio-based evdev listener emitting debounced press/release events for selected key
-- [ ] Provide device discovery utilities
-- [ ] Add unit tests with synthetic evdev events
+- [x] Implement asyncio-based evdev listener emitting debounced press/release events for selected key
+- [x] Provide device discovery utilities
+- [x] Add unit tests with synthetic evdev events
 
 ## 5. Develop Audio Recorder
 - [ ] Use `sounddevice` to capture PCM in start/stop lifecycle writing to buffer or temp file

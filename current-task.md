@@ -1,71 +1,49 @@
-# Current Task: Step 3 – Implement Configuration Loader
+# Current Task: Step 4 – Build Button Listener Module
 
-## Objective
-Build a validated configuration subsystem that maps `dictation.toml` into typed dataclasses, enforces device/model constraints, and exposes CLI helpers for enumerating inputs and audio backends.
+- [x] Deliver a production-ready button listener that integrates with evdev, provides debounced press/release events, and exposes device discovery helpers to feed configuration and CLI diagnostics.
+- [x] Introduce async generator `_iter_key_events` wrapping `evdev.InputDevice.async_read_loop()` filtered to `EV_KEY` events for the configured `key_code`.
+- [x] Map raw events into `ButtonEvent` instances containing `pressed` and `timestamp` metadata.
+- [x] Maintain last event timestamp/state and suppress duplicates within `debounce_ms`.
+- [x] Emit `pressed=True` on key-down and `pressed=False` on key-up after debounce window, capturing hold behavior.
+- [x] Add async context manager support to open/close `InputDevice` safely.
+- [x] Ensure `listen()` handles cancellation, closes descriptors, and logs debug details.
+- [x] Enumerate `/dev/input/by-id`, resolve symlinks, and return `{path: name}` mapping.
+- [x] Handle missing directory or permission errors with logged warnings aligned with config discovery utilities.
+- [x] Provide `ButtonListener.from_config(config: InputConfig)` for orchestrator integration.
+- [x] Use `pytest-asyncio` with patched `async_read_loop` emitting canned events covering press/release, rapid toggles, and cancellation cleanup.
+- [x] Patch `Path.iterdir` and `evdev.InputDevice` to simulate discovery, ensuring resolved paths and friendly names.
+- [x] Assert permission/missing-device scenarios raise `RuntimeError` with clear messaging while logging warnings without crashing tests.
+- [x] Raise `RuntimeError` for device failures to align with orchestrator expectations.
+- [x] Avoid exposing raw `evdev.InputEvent`, relying on logs for debugging to keep API minimal.
+- [x] Log event emissions at DEBUG level to avoid noisy output in production.
 
-## Checklist
-
-- [x] **Design configuration schema**
-  - [x] Review the architecture to catalog fields for general, input, audio, transcriber, and injector settings.
-  - [x] Define dataclasses (e.g., `GeneralConfig`, `InputConfig`, `AudioConfig`, `TranscriberConfig`, `InjectorConfig`, `AppConfig`) with defaults, type hints, and `__all__` exports.
-  - [x] Provide factory helpers or `@dataclass` post-init hooks to normalize enums, paths, and optional collections.
-
-- [x] **Implement loader utilities**
-  - [x] Create `load_config(path: Path | None = None, *, env: Mapping[str, str] | None = None)` that resolves config search order (CLI flag, env var, default path) and reads TOML safely.
-  - [x] Parse raw data using `tomllib` (stdlib) with a fallback import for `tomli` when necessary.
-  - [x] Map parsed dictionaries into dataclasses, deriving defaults for omitted sections and coercing string values (e.g., device IDs, sample rates, directories).
-
-- [x] **Validate configuration values**
-  - [x] Implement evdev discovery helpers to locate the configured input device or raise a descriptive error when absent.
-  - [x] Implement sounddevice discovery to confirm the audio input device exists and supports requested sample rate/channels.
-  - [x] Validate transcriber parameters (model size, compute type, device) and injector command selections with friendly exception types.
-
-- [x] **Expose CLI diagnostics**
-  - [x] Add config module functions to enumerate available input and audio devices, returning structured data for CLI consumption.
-  - [x] Extend Typer commands (`list-inputs`, `list-audio`, config path flag) to call the new helpers and render tabular or JSON output.
-  - [x] Ensure CLI falls back gracefully when hardware probes fail (e.g., running in CI without devices).
-
-- [x] **Testing and fixtures**
-  - [x] Add unit tests covering default loading, explicit path loading, and environment override scenarios using temporary TOML fixtures.
-  - [x] Mock evdev and sounddevice queries to exercise validation success/failure paths deterministically.
-  - [x] Use `typer.testing.CliRunner` to verify CLI diagnostics commands and error messaging.
-
-## Implementation Summary
+## Summary
 
 **Status: ✅ COMPLETE**
 
-All objectives for Step 3 have been successfully implemented and tested:
+Step 4 button listener implementation is production-ready with comprehensive test coverage:
 
-### Configuration Schema
-- ✅ Five core dataclasses with sensible defaults: `InputConfig`, `AudioConfig`, `ModelConfig`, `InjectorConfig`, `TranscriptionConfig`
-- ✅ Additional `GeneralConfig` for app-level settings
-- ✅ Custom `ConfigError` exception for user-friendly error messages
-- ✅ Proper `__all__` exports for clean public API
+### Implementation (dictation_app/button_listener.py)
+- ✅ `ButtonListener` class with async context manager protocol
+- ✅ `_iter_key_events()` async generator filtering for `EV_KEY` events by key code
+- ✅ `ButtonEvent` dataclass with `pressed` bool and `timestamp` metadata
+- ✅ Debouncing logic maintaining `_last_event_time` and `_last_pressed_state`
+- ✅ `listen()` async generator emitting debounced events with cancellation handling
+- ✅ `from_config()` factory method for orchestrator integration
+- ✅ `list_devices()` static method enumerating `/dev/input/by-id` with symlink resolution
+- ✅ Comprehensive error handling raising `RuntimeError` with clear messaging
+- ✅ DEBUG-level logging for event emissions and device operations
 
-### Loader Utilities
-- ✅ `Config.from_toml()` classmethod with full path resolution (CLI → env var → default locations)
-- ✅ `load_config()` convenience wrapper
-- ✅ TOML parsing with `tomllib` (3.11+) and `tomli` fallback
-- ✅ Automatic type coercion and default handling
-
-### Device Discovery & Validation
-- ✅ `discover_input_devices()` - enumerates evdev devices
-- ✅ `discover_audio_devices()` - queries sounddevice
-- ✅ `validate_input_device()` - checks device existence/accessibility
-- ✅ `validate_audio_device()` - validates audio capabilities
-- ✅ Graceful fallback for CI/headless environments
-
-### CLI Extensions
-- ✅ `list-inputs` command with table/JSON output
-- ✅ `list-audio` command with table/JSON output
-- ✅ Config flag support on `run` and `dry-run` commands
-- ✅ Full config validation before execution
-
-### Testing
-- ✅ 25 config module tests (config loading, validation, discovery)
-- ✅ 13 CLI command tests (list-inputs, list-audio, run, dry-run)
-- ✅ All tests passing (38/38)
-- ✅ Code formatted with Black
-- ✅ Push to GitHub completed
-
-**Commit:** e6a912a
+### Testing (tests/test_button_listener.py)
+- ✅ 14 comprehensive tests covering:
+  - Basic event emission and debouncing
+  - Rapid toggle suppression within debounce window
+  - Key code validation with invalid keycodes
+  - Device access errors (OSError, PermissionError)
+  - Cancellation cleanup and resource management
+  - Device discovery with permission errors and mixed scenarios
+  - Context manager protocol compliance
+- ✅ All tests use `pytest-asyncio` with proper async mocking
+- ✅ Tests use patched `Path.iterdir` and `InputDevice` for deterministic scenarios
+- ✅ All 14 tests passing
+- ✅ Zero linting issues (ruff clean)
