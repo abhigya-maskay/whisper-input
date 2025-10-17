@@ -18,7 +18,6 @@ class _RecorderState(Enum):
 
     IDLE = "idle"
     RECORDING = "recording"
-    STOPPED = "stopped"
 
 
 class AudioRecorder:
@@ -46,7 +45,7 @@ class AudioRecorder:
             trim_silence: Whether to trim leading/trailing silence
             silence_threshold: RMS threshold for silence detection (0-1 range)
             silence_duration: Minimum silence duration in seconds to trim
-            device: Audio device index (None for default)
+        device: Audio device index or name (None for default)
         """
         if sample_rate <= 0:
             raise ValueError("sample_rate must be positive")
@@ -100,10 +99,12 @@ class AudioRecorder:
                 f"Cannot start recording: recorder in {self._state.value} state"
             )
 
+        resolved_device = self._resolve_device_selection()
+
         try:
             self._buffer.clear()
             self._stream = sounddevice.InputStream(
-                device=self.device,
+                device=resolved_device,
                 samplerate=self.sample_rate,
                 channels=self.channels,
                 blocksize=self.chunk_size,
@@ -113,9 +114,10 @@ class AudioRecorder:
             self._stream.start()
             self._state = _RecorderState.RECORDING
             logger.info(
-                "Audio stream started (sample_rate=%d, channels=%d)",
+                "Audio stream started (sample_rate=%d, channels=%d, device=%s)",
                 self.sample_rate,
                 self.channels,
+                resolved_device if resolved_device is not None else "default",
             )
         except Exception as e:
             self._state = _RecorderState.IDLE
@@ -164,7 +166,7 @@ class AudioRecorder:
             self._temp_file.close()
 
             self._write_wav(temp_path, frames)
-            self._state = _RecorderState.STOPPED
+            self._state = _RecorderState.IDLE
 
             logger.info("Audio recording stopped and saved to %s", temp_path)
             return temp_path
@@ -334,3 +336,61 @@ class AudioRecorder:
         except Exception as e:
             logger.warning("Error querying audio devices: %s", e)
             return {}
+
+    def _resolve_device_selection(self) -> int | None:
+        """Resolve configured device selection to a sounddevice index."""
+
+        if self.device is None or isinstance(self.device, int):
+            return self.device
+
+        try:
+            device_list = sounddevice.query_devices()
+            if isinstance(device_list, dict):
+                device_list = [device_list]
+        except Exception as e:
+            logger.warning(
+                "Unable to enumerate audio devices for '%s': %s; using default",
+                self.device,
+                e,
+            )
+            return None
+
+        target = self.device.strip().lower()
+        partial_matches: list[tuple[int, str]] = []
+        available: list[str] = []
+
+        for idx, dev_info in enumerate(device_list):
+            if dev_info.get("max_input_channels", 0) <= 0:
+                continue
+
+            name = dev_info.get("name", f"Device {idx}")
+            normalized = name.strip().lower()
+            available.append(f"[{idx}] {name}")
+
+            if normalized == target:
+                logger.debug(
+                    "Resolved audio device '%s' to index %d (exact match)",
+                    self.device,
+                    idx,
+                )
+                return idx
+
+            if target in normalized:
+                partial_matches.append((idx, name))
+
+        if partial_matches:
+            idx, name = partial_matches[0]
+            logger.debug(
+                "Resolved audio device '%s' to index %d via partial match (%s)",
+                self.device,
+                idx,
+                name,
+            )
+            return idx
+
+        logger.warning(
+            "Audio device '%s' not found. Using default input. Available devices: %s",
+            self.device,
+            "; ".join(available) if available else "none",
+        )
+        return None
