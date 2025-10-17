@@ -28,9 +28,9 @@
 - [x] Add unit tests using `pytest` and `unittest.mock` to simulate `sounddevice` streams, silence trimming behavior, device enumeration, and file creation without touching real hardware
 
 ## 6. Integrate Faster Whisper Transcriber
-- [ ] Wrap `WhisperModel` with lazy initialization, configurable device/compute type, and thread-executor transcription
-- [ ] Add post-processing for text normalization
-- [ ] Mock transcription in unit tests and prepare fixture WAV for integration
+- [x] Wrap `WhisperModel` with lazy initialization, configurable device/compute type, and thread-executor transcription
+- [x] Add post-processing for text normalization
+- [x] Mock transcription in unit tests and prepare fixture WAV for integration
 
 ## 7. Create Text Injector
 - [ ] Execute `wtype` (default) or `ydotool` subprocess with clipboard fallback via `wl-copy` when typing fails

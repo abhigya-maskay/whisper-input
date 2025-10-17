@@ -1,21 +1,14 @@
-# Current Task: Step 5 – Develop Audio Recorder
+# Current Task: Step 6 – Integrate Faster Whisper Transcriber
 
-- [x] Diagram recorder lifecycle covering stream initialization, buffer management, and shutdown responsibilities
-- [x] Specify configuration fields required from `InputConfig`/audio section, including defaults and validation ranges
-- [x] Choose buffering mechanism (e.g., `queue.Queue` or `collections.deque`) and define PCM chunk format (dtype, endian, channels)
-- [x] Research `sounddevice.InputStream` callback signature and map to buffering strategy with thread-safe data transfer to async context
-- [x] Define error handling strategy for stream exceptions (callback errors, device busy) and logging expectations
-- [x] Outline optional silence trimming approach: energy threshold selection, minimum silence duration, and fallback when disabled
-- [x] Sketch temporary storage handling (use `tempfile.NamedTemporaryFile`, ensure cleanup on failure) and WAV encoding parameters
-- [x] Implement `start()` to instantiate `InputStream`, register callback, prime buffers, and transition internal state guards
-- [x] Implement `stop()` to stop/close stream, collect buffered frames, apply trimming routine, and write WAV via `wave.open`
-- [x] Add helper to convert buffered frames into numpy array or bytes, respecting sample width and channel layout
-- [x] Ensure `stop()` raises `RuntimeError` when called before `start()` or if no audio captured, with descriptive messages
-- [x] Implement context manager or explicit `close()` to guarantee stream cleanup when orchestrator aborts mid-recording
-- [x] Implement `list_devices()` calling `sounddevice.query_devices()`, filtering `max_input_channels > 0`, and returning ordered mapping
-- [x] Handle `sounddevice.PortAudioError` in `list_devices()` with logged warning and empty result to mirror button discovery behavior
-- [x] Write unit test for `start()`/`stop()` lifecycle using mocks to ensure stream methods invoked in order
-- [x] Write unit test verifying silence trimming logic against synthetic PCM buffers (trim lead/trail silence but keep core audio)
-- [x] Write unit test ensuring temporary WAV file creation, correct sample rate metadata, and cleanup on exceptions
-- [x] Write unit test for `list_devices()` filtering and error handling using patched `sounddevice.query_devices`
-- [x] Write unit test for error paths (`stop()` without `start()`, stream raising exception) ensuring `RuntimeError` surfaces
+- [x] Audit existing configuration (`config.py`) for transcriber options (model path, device, compute type, beam size) and extend schemas/defaults as needed
+- [x] Design transcriber module structure (e.g., `transcriber.py`) with class encapsulating model reference, executor, and normalization utilities
+- [x] Implement lazy `WhisperModel` initialization triggered on first transcription, using configured model directory and logging duration
+- [x] Configure compute target selection (`cpu`, `cuda`, `auto`) and compute type enforcement, mapping config values to FasterWhisper arguments
+- [x] Establish reusable thread pool or `asyncio.to_thread` strategy to offload `WhisperModel.transcribe` without blocking event loop
+- [x] Implement audio ingestion helper converting temporary WAV path into FasterWhisper-compatible input and handling sample rate discrepancies
+- [x] Add transcription entry point returning primary text plus optional segments, surfacing descriptive `RuntimeError` on model failures
+- [x] Implement text post-processing pipeline (strip, lowercase/capitalize rules, punctuation normalization) with configuration toggles if applicable
+- [x] Ensure proper cleanup for executors/model resources on shutdown, aligning with orchestrator lifecycle expectations
+- [x] Write unit tests mocking `WhisperModel` to verify lazy loading, executor invocation, and error propagation without importing real weights
+- [x] Create tests covering normalization logic with diverse sample inputs and ensure deterministic outputs
+- [x] Prepare fixture WAV asset or factory generating synthetic audio for integration tests without external dependencies

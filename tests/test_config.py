@@ -99,7 +99,7 @@ class TestConfigDataclasses:
         cfg = ModelConfig()
         assert cfg.name == "base"
         assert cfg.device == "cpu"
-        assert cfg.compute_type == "default"
+        assert cfg.compute_type == "int8"
 
     def test_injector_config_defaults(self):
         """Test InjectorConfig defaults."""

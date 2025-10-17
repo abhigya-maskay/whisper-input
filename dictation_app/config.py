@@ -57,7 +57,9 @@ class ModelConfig:
 
     name: str = "base"
     device: str = "cpu"
-    compute_type: str = "default"
+    compute_type: str = "int8"
+    model_directory: str | None = None
+    beam_size: int = 5
 
 
 @dataclass
@@ -75,6 +77,9 @@ class TranscriptionConfig:
     timeout: float = 30.0
     language: str = "en"
     noise_reduction: bool = False
+    normalize_text: bool = True
+    lowercase: bool = False
+    capitalize_first: bool = True
 
 
 @dataclass
@@ -151,6 +156,7 @@ class Config:
                 self.audio.sample_rate,
                 self.audio.channels,
             )
+            validate_model_config(self.model)
         except ConfigError:
             raise
         except Exception as e:
@@ -386,6 +392,33 @@ def validate_audio_device(sample_rate: int, channels: int) -> None:
         f"No audio device supports {channels} channels at {sample_rate}Hz\n"
         f"Available devices:\n  {device_list}"
     )
+
+
+def validate_model_config(model_cfg: ModelConfig) -> None:
+    """Validate model configuration.
+
+    Args:
+        model_cfg: ModelConfig instance
+
+    Raises:
+        ConfigError: If model configuration is invalid
+    """
+    valid_compute_types = ("int8", "float16", "float32", "default")
+    if model_cfg.compute_type not in valid_compute_types:
+        raise ConfigError(
+            f"Invalid compute_type '{model_cfg.compute_type}'. "
+            f"Must be one of: {', '.join(valid_compute_types)}"
+        )
+
+    valid_devices = ("cpu", "cuda", "auto")
+    if model_cfg.device not in valid_devices:
+        raise ConfigError(
+            f"Invalid device '{model_cfg.device}'. "
+            f"Must be one of: {', '.join(valid_devices)}"
+        )
+
+    if model_cfg.beam_size <= 0:
+        raise ConfigError(f"beam_size must be positive, got {model_cfg.beam_size}")
 
 
 def load_config(
