@@ -1,14 +1,15 @@
-# Current Task: Step 6 – Integrate Faster Whisper Transcriber
+# Current Task: Step 7 – Create Text Injector
 
-- [x] Audit existing configuration (`config.py`) for transcriber options (model path, device, compute type, beam size) and extend schemas/defaults as needed
-- [x] Design transcriber module structure (e.g., `transcriber.py`) with class encapsulating model reference, executor, and normalization utilities
-- [x] Implement lazy `WhisperModel` initialization triggered on first transcription, using configured model directory and logging duration
-- [x] Configure compute target selection (`cpu`, `cuda`, `auto`) and compute type enforcement, mapping config values to FasterWhisper arguments
-- [x] Establish reusable thread pool or `asyncio.to_thread` strategy to offload `WhisperModel.transcribe` without blocking event loop
-- [x] Implement audio ingestion helper converting temporary WAV path into FasterWhisper-compatible input and handling sample rate discrepancies
-- [x] Add transcription entry point returning primary text plus optional segments, surfacing descriptive `RuntimeError` on model failures
-- [x] Implement text post-processing pipeline (strip, lowercase/capitalize rules, punctuation normalization) with configuration toggles if applicable
-- [x] Ensure proper cleanup for executors/model resources on shutdown, aligning with orchestrator lifecycle expectations
-- [x] Write unit tests mocking `WhisperModel` to verify lazy loading, executor invocation, and error propagation without importing real weights
-- [x] Create tests covering normalization logic with diverse sample inputs and ensure deterministic outputs
-- [x] Prepare fixture WAV asset or factory generating synthetic audio for integration tests without external dependencies
+- [x] Review `config.py` and related schemas to ensure injector configuration covers binary selection (`wtype`/`ydotool`), clipboard fallback toggle, dry-run option, and timeouts; extend defaults if missing
+- [x] Outline injector module structure (e.g., `injector.py`) with a class exposing `inject_text` and dependency hooks for subprocess execution and clipboard utilities
+- [x] Implement command resolution that builds argument lists for `wtype` (default) and `ydotool`, including support for configurable typing delays and newline behavior when specified
+- [x] Add logic to detect Wayland vs Ydotool path requirements and surface descriptive configuration errors when binaries are unavailable or not executable
+- [x] Implement dry-run mode to log intended actions without calling external binaries
+- [x] Integrate primary execution path that streams text via the chosen typing tool using `asyncio.to_thread` or a dedicated executor to avoid blocking the event loop
+- [x] Capture subprocess results, enforcing timeouts and raising `RuntimeError` with stderr context when exit codes are non-zero or timeouts occur
+- [x] Implement clipboard fallback by piping text into `wl-copy`, validating exit success, and retrying the typing command once after the clipboard update
+- [x] Provide structured error handling that distinguishes between command-not-found, timeout, and execution failure, mapping them to actionable messages for the orchestrator
+- [x] Expose a dry-run friendly logging pathway that includes the resolved command, fallback behavior, and final status
+- [x] Add unit tests mocking subprocess invocations to verify success path, failure path with fallback activation, dry-run behavior, and timeout handling without invoking real binaries
+- [x] Add tests ensuring configuration errors are raised when required binaries are unavailable and that clipboard fallback is skipped when disabled by config
+- [x] Verify injector module integrates with orchestrator interfaces (placeholders acceptable) and document expected async usage in code comments if necessary

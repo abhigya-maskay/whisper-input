@@ -68,6 +68,10 @@ class InjectorConfig:
 
     backend: str = "wtype"
     clipboard_mode: bool = False
+    typing_delay: int = 50
+    use_newline: bool = False
+    timeout: float = 10.0
+    dry_run: bool = False
 
 
 @dataclass
@@ -157,6 +161,7 @@ class Config:
                 self.audio.channels,
             )
             validate_model_config(self.model)
+            validate_injector_config(self.injector)
         except ConfigError:
             raise
         except Exception as e:
@@ -419,6 +424,31 @@ def validate_model_config(model_cfg: ModelConfig) -> None:
 
     if model_cfg.beam_size <= 0:
         raise ConfigError(f"beam_size must be positive, got {model_cfg.beam_size}")
+
+
+def validate_injector_config(injector_cfg: InjectorConfig) -> None:
+    """Validate injector configuration.
+
+    Args:
+        injector_cfg: InjectorConfig instance
+
+    Raises:
+        ConfigError: If injector configuration is invalid
+    """
+    valid_backends = ("wtype", "ydotool")
+    if injector_cfg.backend not in valid_backends:
+        raise ConfigError(
+            f"Invalid backend '{injector_cfg.backend}'. "
+            f"Must be one of: {', '.join(valid_backends)}"
+        )
+
+    if injector_cfg.typing_delay < 0:
+        raise ConfigError(
+            f"typing_delay must be non-negative, got {injector_cfg.typing_delay}"
+        )
+
+    if injector_cfg.timeout <= 0:
+        raise ConfigError(f"timeout must be positive, got {injector_cfg.timeout}")
 
 
 def load_config(
