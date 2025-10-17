@@ -124,7 +124,7 @@ class TestCommandResolution:
 
         cmd = injector._resolve_wtype_command("hello world")
 
-        assert cmd == ["/usr/bin/wtype", "--", "hello world"]
+        assert cmd == ["/usr/bin/wtype", "hello world"]
 
     @patch("dictation_app.injector.shutil.which")
     def test_resolve_wtype_command_with_delay(self, mock_which):
@@ -136,7 +136,7 @@ class TestCommandResolution:
 
         cmd = injector._resolve_wtype_command("hello")
 
-        assert "--delay" in cmd
+        assert "-d" in cmd
         assert "50" in cmd
 
     @patch("dictation_app.injector.shutil.which")

@@ -123,10 +123,11 @@ class Injector:
         """
         cmd = [str(self._validate_binary("wtype"))]
         if self.typing_delay > 0:
-            cmd.extend(["--delay", str(self.typing_delay)])
-        cmd.extend(["--", text])
+            cmd.extend(["-d", str(self.typing_delay)])
         if self.use_newline:
-            cmd[-1] = text + "\n"
+            cmd.append(text + "\n")
+        else:
+            cmd.append(text)
         return cmd
 
     def _resolve_ydotool_command(self, text: str) -> list[str]:
@@ -222,15 +223,16 @@ class Injector:
 
         loop = asyncio.get_event_loop()
         try:
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    subprocess.run,
+            def _run_subprocess():
+                return subprocess.run(
                     cmd,
-                    None,  # stdin
-                    subprocess.PIPE,  # stdout
-                    subprocess.PIPE,  # stderr
-                ),
+                    stdin=None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+            
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, _run_subprocess),
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError as e:
@@ -262,15 +264,16 @@ class Injector:
 
         loop = asyncio.get_event_loop()
         try:
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    subprocess.run,
+            def _run_subprocess():
+                return subprocess.run(
                     cmd,
-                    None,  # stdin
-                    subprocess.PIPE,  # stdout
-                    subprocess.PIPE,  # stderr
-                ),
+                    stdin=None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+            
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, _run_subprocess),
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError as e:
@@ -306,15 +309,17 @@ class Injector:
         loop = asyncio.get_event_loop()
 
         try:
+            def _run_wl_copy():
+                return subprocess.run(
+                [wl_copy_path],
+                    stdin=None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    input=text.encode("utf-8"),
+                )
+            
             wl_result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    subprocess.run,
-                    [wl_copy_path],
-                    text.encode("utf-8"),
-                    subprocess.PIPE,
-                    subprocess.PIPE,
-                ),
+                loop.run_in_executor(None, _run_wl_copy),
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError as e:
@@ -345,15 +350,16 @@ class Injector:
             raise ValueError(f"Unknown backend: {self.backend}")
 
         try:
-            result = await asyncio.wait_for(
-                loop.run_in_executor(
-                    None,
-                    subprocess.run,
+            def _run_subprocess():
+                return subprocess.run(
                     cmd,
-                    None,  # stdin
-                    subprocess.PIPE,  # stdout
-                    subprocess.PIPE,  # stderr
-                ),
+                    stdin=None,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+            
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, _run_subprocess),
                 timeout=self.timeout,
             )
         except asyncio.TimeoutError as e:
