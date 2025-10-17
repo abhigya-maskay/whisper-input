@@ -40,10 +40,10 @@
 - [x] Add comprehensive unit tests with subprocess mocking (30 tests, all passing)
 
 ## 8. Assemble Orchestrator
-- [ ] Coordinate listener, recorder, transcriber, and injector through async state machine with timeout/error management
-- [ ] Integrate logging and optional notifications
-- [ ] Implement graceful shutdown
-- [ ] Validate transitions with pytest-asyncio tests
+- [x] Coordinate listener, recorder, transcriber, and injector through async state machine with timeout/error management
+- [x] Integrate logging and optional notifications
+- [x] Implement graceful shutdown
+- [x] Validate transitions with pytest-asyncio tests (22 tests for orchestrator, 160 total passing)
 
 ## 9. Wire CLI Entry Point
 - [ ] Connect Typer commands to orchestrator start, helper diagnostics, and config overrides

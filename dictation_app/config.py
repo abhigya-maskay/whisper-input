@@ -19,6 +19,7 @@ __all__ = [
     "ModelConfig",
     "InjectorConfig",
     "TranscriptionConfig",
+    "OrchestratorConfig",
     "GeneralConfig",
     "Config",
     "ConfigError",
@@ -87,6 +88,16 @@ class TranscriptionConfig:
 
 
 @dataclass
+class OrchestratorConfig:
+    """Orchestrator state machine and coordination settings."""
+
+    max_retries: int = 3
+    error_recovery_delay: float = 1.0
+    silence_recovery_timeout: float = 5.0
+    recording_timeout: float = 300.0
+
+
+@dataclass
 class GeneralConfig:
     """General application settings."""
 
@@ -103,6 +114,7 @@ class Config:
     model: ModelConfig
     injector: InjectorConfig
     transcription: TranscriptionConfig
+    orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     general: GeneralConfig = field(default_factory=GeneralConfig)
 
     @classmethod
@@ -143,6 +155,7 @@ class Config:
                 model=ModelConfig(**coerced.get("model", {})),
                 injector=InjectorConfig(**coerced.get("injector", {})),
                 transcription=TranscriptionConfig(**coerced.get("transcription", {})),
+                orchestrator=OrchestratorConfig(**coerced.get("orchestrator", {})),
                 general=GeneralConfig(**coerced.get("general", {})),
             )
         except TypeError as e:
@@ -238,7 +251,7 @@ def _coerce_config_values(raw_data: dict) -> dict:
     """
     coerced = {}
 
-    for section in ("input", "audio", "model", "injector", "transcription", "general"):
+    for section in ("input", "audio", "model", "injector", "transcription", "orchestrator", "general"):
         coerced[section] = raw_data.get(section, {})
         if not isinstance(coerced[section], dict):
             raise ConfigError(f"Section [{section}] must be a table")

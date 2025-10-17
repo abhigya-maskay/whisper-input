@@ -78,10 +78,13 @@ class AudioRecorder:
         self.close()
         return False
 
-    def start(self) -> None:
+    def start(self, token=None) -> None:
         """Start audio recording.
 
         Opens a sounddevice InputStream, registers callback, and begins buffering frames.
+
+        Args:
+            token: Optional RecordingCancellationToken to allow graceful abort
 
         Raises:
             RuntimeError: If already recording or stream cannot be opened

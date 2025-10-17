@@ -1,17 +1,23 @@
 """Typer CLI entrypoint for dictation-app."""
 
+import asyncio
 import json
 import logging
 from pathlib import Path
 
 import typer
 
+from dictation_app.button_listener import ButtonListener
 from dictation_app.config import (
     ConfigError,
     discover_audio_devices,
     discover_input_devices,
     load_config,
 )
+from dictation_app.injector import Injector
+from dictation_app.orchestrator import Orchestrator
+from dictation_app.recorder import AudioRecorder
+from dictation_app.transcriber import Transcriber
 
 app = typer.Typer(help="Hyprland dictation helper via Faster Whisper")
 
@@ -43,11 +49,43 @@ def run(
         logger.debug("Config: %s", cfg)
         cfg.validate()
         logger.info("Configuration validated successfully")
+
+        # Initialize components
+        button_listener = ButtonListener.from_config(cfg.input)
+        recorder = AudioRecorder(
+            sample_rate=cfg.audio.sample_rate,
+            channels=cfg.audio.channels,
+            chunk_size=cfg.audio.chunk_size,
+            trim_silence=True,
+        )
+        transcriber = Transcriber(
+            model_name=cfg.model.name,
+            device=cfg.model.device,
+            compute_type=cfg.model.compute_type,
+            model_directory=cfg.model.model_directory,
+            beam_size=cfg.model.beam_size,
+        )
+        injector = Injector(cfg.injector)
+        orchestrator = Orchestrator(
+            button_listener=button_listener,
+            recorder=recorder,
+            transcriber=transcriber,
+            injector=injector,
+            config=cfg.orchestrator,
+        )
+
+        # Run the orchestrator
+        logger.info("Starting dictation daemon")
+        asyncio.run(orchestrator.run())
+
     except ConfigError as e:
         logger.error("Configuration error: %s", e)
         raise typer.Exit(1)
+    except KeyboardInterrupt:
+        logger.info("Daemon interrupted by user")
+        raise typer.Exit(0)
     except Exception as e:
-        logger.error("Unexpected error: %s", e)
+        logger.error("Unexpected error: %s", e, exc_info=True)
         raise typer.Exit(1)
 
 

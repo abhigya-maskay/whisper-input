@@ -1,15 +1,19 @@
-# Current Task: Step 7 – Create Text Injector
+# Current Task: Step 8 – Assemble Orchestrator
 
-- [x] Review `config.py` and related schemas to ensure injector configuration covers binary selection (`wtype`/`ydotool`), clipboard fallback toggle, dry-run option, and timeouts; extend defaults if missing
-- [x] Outline injector module structure (e.g., `injector.py`) with a class exposing `inject_text` and dependency hooks for subprocess execution and clipboard utilities
-- [x] Implement command resolution that builds argument lists for `wtype` (default) and `ydotool`, including support for configurable typing delays and newline behavior when specified
-- [x] Add logic to detect Wayland vs Ydotool path requirements and surface descriptive configuration errors when binaries are unavailable or not executable
-- [x] Implement dry-run mode to log intended actions without calling external binaries
-- [x] Integrate primary execution path that streams text via the chosen typing tool using `asyncio.to_thread` or a dedicated executor to avoid blocking the event loop
-- [x] Capture subprocess results, enforcing timeouts and raising `RuntimeError` with stderr context when exit codes are non-zero or timeouts occur
-- [x] Implement clipboard fallback by piping text into `wl-copy`, validating exit success, and retrying the typing command once after the clipboard update
-- [x] Provide structured error handling that distinguishes between command-not-found, timeout, and execution failure, mapping them to actionable messages for the orchestrator
-- [x] Expose a dry-run friendly logging pathway that includes the resolved command, fallback behavior, and final status
-- [x] Add unit tests mocking subprocess invocations to verify success path, failure path with fallback activation, dry-run behavior, and timeout handling without invoking real binaries
-- [x] Add tests ensuring configuration errors are raised when required binaries are unavailable and that clipboard fallback is skipped when disabled by config
-- [x] Verify injector module integrates with orchestrator interfaces (placeholders acceptable) and document expected async usage in code comments if necessary
+- [x] Review existing listener, recorder, transcriber, and injector APIs to confirm call signatures, async behavior, and error contracts
+- [x] Draft orchestrator architecture outlining states (idle, recording, transcribing, injecting, error, shutdown) and transitions, noting timeout boundaries from config
+- [x] Define orchestrator configuration dataclasses or sections to capture state-machine parameters (timeouts, retry limits, logging levels) and ensure defaults
+- [x] Implement orchestrator class skeleton with dependency injection for listener/recorder/transcriber/injector instances and shared asyncio loop context
+- [x] Implement async startup routine that registers button listener callbacks, primes shared queues, and configures logging/metrics hooks
+- [x] Implement recording cycle handler: on press -> start recorder, maintain cancellation token; on release -> stop recorder, retrieve WAV path, handle silence/no-audio conditions
+- [x] Implement transcription stage using executor-backed task, apply normalization, timeout handling, and propagate meaningful errors to orchestrator state
+- [x] Implement text injection stage with retry strategy, clipboard fallback coordination, and structured success/failure signaling
+- [x] Add error management paths that map component exceptions to orchestrator states, logging severity, and user-facing notifications when available
+- [x] Implement graceful shutdown routine closing listeners, cancelling pending asyncio tasks, cleaning temporary files, and ensuring recorder/transcriber resources freed
+- [x] Integrate logging at state boundaries and decision points, honoring verbosity settings, and wire optional notification hooks (e.g., sound/desktop placeholder)
+- [x] Write pytest-asyncio tests using fakes/mocks for all components to validate nominal flow, timeout handling, and failure recovery logic
+
+## Follow-up Action Items
+
+- [x] Expand `startup()` to register listener callbacks or spawn the button-listener task so that event handling is primed before `run()` iterates, and initialize any shared queues or hooks needed for metrics/logging.
+- [x] Introduce a recording cancellation token tracked during `_on_button_pressed()` and honored in `_on_button_released()`/shutdown to guarantee in-flight recordings can be aborted cleanly during errors or shutdown.

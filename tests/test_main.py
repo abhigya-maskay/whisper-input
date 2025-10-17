@@ -110,22 +110,66 @@ class TestListAudioCommand:
 class TestRunCommand:
     """Tests for run command."""
 
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
     @patch("dictation_app.main.load_config")
-    def test_run_command_success(self, mock_load_config):
+    def test_run_command_success(self, mock_load_config, mock_bl, mock_ar, mock_tr, 
+                                  mock_inj, mock_orch, mock_asyncio_run):
         """Test run command with valid config."""
         mock_cfg = MagicMock()
         mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
         mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
 
         result = runner.invoke(app, ["run"])
         assert result.exit_code == 0
 
+    @patch("dictation_app.main.asyncio.run")
+    @patch("dictation_app.main.Orchestrator")
+    @patch("dictation_app.main.Injector")
+    @patch("dictation_app.main.Transcriber")
+    @patch("dictation_app.main.AudioRecorder")
+    @patch("dictation_app.main.ButtonListener")
     @patch("dictation_app.main.load_config")
-    def test_run_command_with_config_path(self, mock_load_config):
+    def test_run_command_with_config_path(self, mock_load_config, mock_bl, mock_ar, mock_tr,
+                                          mock_inj, mock_orch, mock_asyncio_run):
         """Test run command with explicit config path."""
         mock_cfg = MagicMock()
         mock_cfg.validate = MagicMock()
+        mock_cfg.input = MagicMock()
+        mock_cfg.audio = MagicMock()
+        mock_cfg.audio.sample_rate = 16000
+        mock_cfg.audio.channels = 1
+        mock_cfg.audio.chunk_size = 4096
+        mock_cfg.model = MagicMock()
+        mock_cfg.model.name = "base"
+        mock_cfg.model.device = "cpu"
+        mock_cfg.model.compute_type = "int8"
+        mock_cfg.model.model_directory = None
+        mock_cfg.model.beam_size = 5
+        mock_cfg.injector = MagicMock()
+        mock_cfg.orchestrator = MagicMock()
         mock_load_config.return_value = mock_cfg
+        mock_bl.from_config.return_value = MagicMock()
+        mock_asyncio_run.return_value = None
 
         result = runner.invoke(app, ["run", "--config", "/path/to/config.toml"])
         assert result.exit_code == 0
