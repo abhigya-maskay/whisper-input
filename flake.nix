@@ -37,6 +37,42 @@
 
         packages.default = self.packages.${system}.dictation-app;
 
+        checks.${system} = {
+          test = pkgs.stdenv.mkDerivation {
+            name = "dictation-app-tests";
+            src = ./.;
+            buildInputs = with pythonPkgs; [
+              pytest
+              pytest-asyncio
+              faster-whisper
+              numpy
+              sounddevice
+              evdev
+              typer
+              onnxruntime
+              tomli
+            ];
+            buildPhase = ''
+              python -m pytest tests/ -v --tb=short
+            '';
+            installPhase = "mkdir -p $out";
+          };
+
+          lint = pkgs.stdenv.mkDerivation {
+            name = "dictation-app-lint";
+            src = ./.;
+            buildInputs = with pythonPkgs; [
+              ruff
+              black
+            ];
+            buildPhase = ''
+              ruff check dictation_app tests
+              black --check dictation_app tests
+            '';
+            installPhase = "mkdir -p $out";
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             (python.withPackages (ps: with ps; [

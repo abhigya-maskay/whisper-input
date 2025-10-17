@@ -50,6 +50,6 @@
 - [x] Expose runnable script via Nix flake outputs (`packages.${system}.dictation-app`)
 
 ## 10. Testing and QA
-- [ ] Finalize unit/integration tests and hook into `flake.nix` checks
-- [ ] Perform manual validation loop inside Hyprland session for hold-to-record workflow and failure modes
-- [ ] Document deployment and configuration usage if requested
+- [x] Finalize unit/integration tests and hook into `flake.nix` checks
+- [x] Perform manual validation loop inside Hyprland session for hold-to-record workflow and failure modes
+- [x] Document deployment and configuration usage if requested
