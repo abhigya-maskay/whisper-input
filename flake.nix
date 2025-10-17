@@ -62,11 +62,13 @@
             # Dev tools
             ruff
             black
+            pre-commit
           ];
 
           shellHook = ''
             echo "Dictation Helper dev environment loaded"
             echo "Python: $(python --version)"
+            pre-commit install --install-hooks > /dev/null 2>&1 || true
           '';
         };
       }
