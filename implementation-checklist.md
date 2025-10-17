@@ -10,9 +10,9 @@
 - [x] Add `main.py` Typer CLI skeleton and configure Nix build (e.g., `poetry2nix` if applicable)
 
 ## 3. Implement Configuration Loader
-- [ ] Introduce `config.py` with dataclasses covering input/audio/model/injector settings
-- [ ] Parse `dictation.toml`, apply defaults, validate device identifiers
-- [ ] Expose helper commands `--list-inputs` and `--list-audio`
+- [x] Introduce `config.py` with dataclasses covering input/audio/model/injector settings
+- [x] Parse `dictation.toml`, apply defaults, validate device identifiers
+- [x] Expose helper commands `--list-inputs` and `--list-audio`
 
 ## 4. Build Button Listener Module
 - [ ] Implement asyncio-based evdev listener emitting debounced press/release events for selected key
