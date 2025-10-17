@@ -1,11 +1,12 @@
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "dictation-app"
 version = "0.1.0"
 description = "Hyprland dictation helper via Faster Whisper"
+requires-python = ">=3.10"
 dependencies = [
   "faster-whisper",
   "numpy",
@@ -15,3 +16,24 @@ dependencies = [
   "onnxruntime",
   "tomli",
 ]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-asyncio",
+  "ruff",
+  "black",
+]
+
+[project.scripts]
+dictation-app = "dictation_app.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["dictation_app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

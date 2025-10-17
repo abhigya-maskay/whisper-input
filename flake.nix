@@ -21,8 +21,7 @@
           pyproject = true;
 
           nativeBuildInputs = with pythonPkgs; [
-            setuptools
-            wheel
+            hatchling
           ];
 
           propagatedBuildInputs = with pythonPkgs; [
@@ -34,9 +33,6 @@
             onnxruntime
             tomli
           ];
-
-          # Placeholder: no entry point yet, skip installation for now
-          postInstall = "rm -rf $out/bin || true";
         };
 
         packages.default = self.packages.${system}.dictation-app;
@@ -53,6 +49,7 @@
               tomli
               pytest
               pytest-asyncio
+              hatchling
               pip
             ]))
             # Wayland utilities
