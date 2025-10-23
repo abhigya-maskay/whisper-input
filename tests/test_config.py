@@ -86,6 +86,16 @@ class TestConfigDataclasses:
         cfg = InputConfig(device="/dev/input/test", key_code="BTN_EXTRA")
         assert cfg.device == "/dev/input/test"
         assert cfg.key_code == "BTN_EXTRA"
+        assert cfg.key_codes == ("BTN_EXTRA",)
+
+    def test_input_config_multiple_codes(self):
+        """Test InputConfig with multiple key codes."""
+        cfg = InputConfig(
+            device="/dev/input/test",
+            key_code=["BTN_EXTRA", "KEY_F2"],
+        )
+        assert cfg.key_codes == ("BTN_EXTRA", "KEY_F2")
+        assert cfg.key_code == "BTN_EXTRA"
 
     def test_audio_config_defaults(self):
         """Test AudioConfig defaults."""

@@ -3,13 +3,14 @@
 import asyncio
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from dictation_app.button_listener import ButtonEvent
 from dictation_app.config import OrchestratorConfig
 from dictation_app.orchestrator import Orchestrator, State, RecordingCancellationToken
+from dictation_app.recorder import AudioRecorder
 from dictation_app._types import TranscriptionResult, TranscriptionSegment
 
 
@@ -24,11 +25,7 @@ def mock_button_listener():
 @pytest.fixture
 def mock_recorder():
     """Create mock AudioRecorder."""
-    mock = Mock()
-    mock.start = Mock()
-    mock.stop = Mock()
-    mock.close = Mock()
-    return mock
+    return Mock(spec=AudioRecorder)
 
 
 @pytest.fixture

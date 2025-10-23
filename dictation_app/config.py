@@ -5,6 +5,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Sequence
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -40,7 +41,28 @@ class InputConfig:
     """Input device configuration."""
 
     device: str
-    key_code: str
+    key_code: str | Sequence[str]
+    key_codes: tuple[str, ...] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Normalize key code configuration."""
+        if isinstance(self.key_code, str):
+            key_codes = (self.key_code,)
+        else:
+            try:
+                key_codes = tuple(self.key_code)
+            except TypeError as exc:
+                raise ConfigError(f"input.key_code must be a string or sequence of strings: {exc}") from exc
+
+            if not key_codes:
+                raise ConfigError("input.key_code must contain at least one key symbol")
+
+        for code in key_codes:
+            if not isinstance(code, str) or not code:
+                raise ConfigError("input.key_code entries must be non-empty strings")
+
+        self.key_codes = key_codes
+        self.key_code = key_codes[0]
 
 
 @dataclass
@@ -262,9 +284,21 @@ def _coerce_config_values(raw_data: dict) -> dict:
         if not isinstance(coerced[section], dict):
             raise ConfigError(f"Section [{section}] must be a table")
 
-    if "input" in raw_data and not raw_data["input"].get("device"):
+    input_section = coerced["input"]
+
+    if "input" in raw_data and not input_section.get("device"):
         raise ConfigError("input.device is required")
-    if "input" in raw_data and not raw_data["input"].get("key_code"):
+
+    if "key_codes" in input_section:
+        key_codes_value = input_section["key_codes"]
+        if not isinstance(key_codes_value, (list, tuple)):
+            raise ConfigError("input.key_codes must be a list of key symbols")
+        if not key_codes_value:
+            raise ConfigError("input.key_codes cannot be empty")
+        input_section["key_code"] = key_codes_value
+        del input_section["key_codes"]
+
+    if "input" in raw_data and not input_section.get("key_code"):
         raise ConfigError("input.key_code is required")
 
     return coerced

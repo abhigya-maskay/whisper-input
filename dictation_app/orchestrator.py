@@ -304,8 +304,7 @@ class Orchestrator:
     async def _transcribe_and_inject(self, audio_path: Path) -> None:
         """Transcribe audio and inject text with retry strategy.
 
-        Transcription is retried on failure with exponential backoff.
-        Injection is attempted only once to prevent duplicate text entry.
+        Transcription and injection are retried on failure with exponential backoff.
 
         Args:
             audio_path: Path to WAV file
@@ -367,27 +366,50 @@ class Orchestrator:
             await self._error_recovery(last_error or RuntimeError("Transcription failed"))
             return
 
-        # Injection stage - NO RETRIES to prevent duplicate text
-        try:
-            logger.info("State transition: TRANSCRIBING -> INJECTING")
-            self.state = State.INJECTING
+        # Injection stage with retries mirroring transcription behaviour
+        logger.info("State transition: TRANSCRIBING -> INJECTING")
+        self.state = State.INJECTING
 
-            logger.debug("Injecting text (no retries)")
-            await self.injector.inject_text(text)
-            logger.info("Text injection successful")
+        injection_attempt = 0
+        last_injection_error: Exception | None = None
 
-            # Success: back to IDLE
-            logger.info("State transition: INJECTING -> IDLE")
-            self.state = State.IDLE
+        while injection_attempt < self.config.max_retries:
+            injection_attempt += 1
+            try:
+                logger.debug(
+                    "Injecting text (attempt %d/%d)",
+                    injection_attempt,
+                    self.config.max_retries,
+                )
+                await self.injector.inject_text(text)
+                logger.info("Text injection successful")
+                logger.info("State transition: INJECTING -> IDLE")
+                self.state = State.IDLE
+                return
+            except (RuntimeError, TimeoutError, Exception) as e:
+                last_injection_error = e
+                logger.warning(
+                    "Text injection attempt %d/%d failed (%s: %s)",
+                    injection_attempt,
+                    self.config.max_retries,
+                    type(e).__name__,
+                    e,
+                )
+                if injection_attempt < self.config.max_retries:
+                    wait_time = 0.5 * (2 ** (injection_attempt - 1))
+                    logger.debug("Waiting %.1fs before retrying injection", wait_time)
+                    await asyncio.sleep(wait_time)
 
-        except (RuntimeError, TimeoutError, Exception) as e:
-            logger.error(
-                "Text injection failed (no retry to prevent duplicates): %s: %s",
-                type(e).__name__,
-                e,
-            )
-            self.state = State.ERROR
-            await self._error_recovery(e)
+        # All injection attempts failed
+        assert last_injection_error is not None
+        logger.error(
+            "Text injection failed after %d attempts: %s: %s",
+            self.config.max_retries,
+            type(last_injection_error).__name__,
+            last_injection_error,
+        )
+        self.state = State.ERROR
+        await self._error_recovery(last_injection_error)
 
     async def _error_recovery(self, error: Exception) -> None:
         """Recover from error state by waiting and transitioning to IDLE.

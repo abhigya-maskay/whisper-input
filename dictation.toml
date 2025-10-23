@@ -1,6 +1,6 @@
 [input]
 device = "/dev/input/by-id/usb-MoErgo_Glove80_Left_moergo.com:GLV80-D165CFC1D344ADC4-event-kbd"
-key_code = "KEY_F9"
+key_code = ["KEY_F9", "KEY_F2"]
 
 [audio]
 sample_rate = 44100

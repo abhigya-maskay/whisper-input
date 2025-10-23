@@ -23,10 +23,23 @@ class TestButtonListener:
         """Test factory method from config."""
         config = InputConfig(device="/dev/input/by-id/test-device", key_code="BTN_EXTRA")
         listener = ButtonListener.from_config(config, debounce_ms=100)
-        
+
         assert listener.device_path == "/dev/input/by-id/test-device"
         assert listener.key_code == "BTN_EXTRA"
+        assert listener.key_codes == ("BTN_EXTRA",)
         assert listener.debounce_ms == 100
+
+    def test_from_config_multiple_keys(self):
+        """Test factory method with multiple key codes."""
+        config = InputConfig(
+            device="/dev/input/by-id/test-device",
+            key_code=["BTN_EXTRA", "KEY_F2"],
+        )
+        listener = ButtonListener.from_config(config, debounce_ms=75)
+
+        assert listener.key_codes == ("BTN_EXTRA", "KEY_F2")
+        assert listener.key_code == "BTN_EXTRA"
+        assert listener.debounce_ms == 75
 
     @patch('dictation_app.button_listener.InputDevice')
     @pytest.mark.asyncio
