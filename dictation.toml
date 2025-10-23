@@ -9,7 +9,7 @@ chunk_size = 4096
 device = "Yeti X: USB Audio"
 
 [model]
-name = "large-v2"
+name = "distil-large-v3"
 device = "cuda"
 compute_type = "float16"
 model_directory = "/home/ave70011/.cache/whisper"
@@ -18,7 +18,7 @@ beam_size = 5
 [injector]
 backend = "wtype"
 clipboard_mode = false
-typing_delay = 50
+typing_delay = 0
 use_newline = false
 timeout = 10.0
 dry_run = false
