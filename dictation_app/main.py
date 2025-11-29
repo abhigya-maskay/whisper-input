@@ -18,7 +18,7 @@ from dictation_app.config import (
 from dictation_app.injector import Injector
 from dictation_app.orchestrator import Orchestrator
 from dictation_app.recorder import AudioRecorder
-from dictation_app.transcriber import Transcriber
+from dictation_app.transcriber import Transcriber, create_transcriber
 
 app = typer.Typer(help="Hyprland dictation helper via Faster Whisper")
 
@@ -144,6 +144,14 @@ def run(
         cfg.validate()
         logger.info("Configuration validated successfully")
 
+        backend = getattr(cfg.model, "backend", None)
+        if not isinstance(backend, str) or not backend:
+            logger.debug(
+                "Model backend missing or invalid (%r); defaulting to 'faster_whisper'",
+                backend,
+            )
+            cfg.model.backend = "faster_whisper"
+
         # Initialize components
         button_listener = ButtonListener.from_config(cfg.input)
         recorder = AudioRecorder(
@@ -152,14 +160,9 @@ def run(
             chunk_size=cfg.audio.chunk_size,
             trim_silence=True,
             device=cfg.audio.device,
+            latency=cfg.audio.latency,
         )
-        transcriber = Transcriber(
-            model_name=cfg.model.name,
-            device=cfg.model.device,
-            compute_type=cfg.model.compute_type,
-            model_directory=cfg.model.model_directory,
-            beam_size=cfg.model.beam_size,
-        )
+        transcriber = create_transcriber(cfg)
         injector = Injector(cfg.injector)
         orchestrator = Orchestrator(
             button_listener=button_listener,

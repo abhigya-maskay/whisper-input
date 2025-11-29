@@ -32,6 +32,40 @@
                   faster-whisper = super.faster-whisper.overridePythonAttrs (old: {
                     propagatedBuildInputs = (old.propagatedBuildInputs or []) ++ [ self.ctranslate2 ];
                   });
+
+                  deepgram-sdk = super.buildPythonPackage rec {
+                    pname = "deepgram_sdk";
+                    version = "5.2.0";
+                    format = "pyproject";
+
+                    src = super.fetchPypi {
+                      inherit pname version;
+                      hash = "sha256-FJQWZ9aEVPxmw6DBCcpY0vDrYmaX5QmUb4SFGWa2Gnc=";
+                    };
+
+                    nativeBuildInputs = with self; [
+                      poetry-core
+                    ];
+
+                    propagatedBuildInputs = with self; [
+                      httpx
+                      pydantic
+                      pydantic-core
+                      typing-extensions
+                      websockets
+                    ];
+
+                    pythonImportsCheck = [ "deepgram" ];
+
+                    # Skip tests since they require network access
+                    doCheck = false;
+
+                    meta = with prev.lib; {
+                      description = "Official Python SDK for Deepgram's automated speech recognition APIs";
+                      homepage = "https://github.com/deepgram/deepgram-python-sdk";
+                      license = licenses.mit;
+                    };
+                  };
                 };
               };
             })
@@ -53,6 +87,7 @@
 
           propagatedBuildInputs = with pythonPkgs; [
             faster-whisper
+            deepgram-sdk
             numpy
             sounddevice
             soundfile
@@ -61,12 +96,14 @@
             typer
             onnxruntime
             tomli
+          ] ++ [
+            pkgs.xdotool
           ];
         };
 
         packages.default = self.packages.${system}.dictation-app;
 
-        checks.${system} = {
+        checks = {
           test = pkgs.stdenv.mkDerivation {
             name = "dictation-app-tests";
             src = ./.;
@@ -74,6 +111,7 @@
               pytest
               pytest-asyncio
               faster-whisper
+              deepgram-sdk
               numpy
               sounddevice
               soundfile
@@ -112,6 +150,7 @@
           buildInputs = with pkgs; [
             (python.withPackages (ps: with ps; [
               faster-whisper
+              deepgram-sdk
               numpy
               sounddevice
               soundfile
@@ -129,6 +168,7 @@
             wtype
             wl-clipboard
             ydotool
+            xdotool
             sox
             pipewire
             libnotify

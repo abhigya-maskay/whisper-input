@@ -1,4 +1,4 @@
-"""Audio transcription via Faster Whisper."""
+"""Audio transcription via Faster Whisper or Deepgram."""
 
 import asyncio
 import logging
@@ -14,7 +14,7 @@ from dictation_app._types import TranscriptionResult, TranscriptionSegment
 logger = logging.getLogger(__name__)
 
 
-class Transcriber:
+class WhisperTranscriber:
     """Encapsulates Faster Whisper model and transcription logic.
 
     Runs transcription inside a thread pool executor to avoid blocking the event loop.
@@ -29,6 +29,8 @@ class Transcriber:
         model_directory: str | None = None,
         beam_size: int = 5,
         executor: ThreadPoolExecutor | None = None,
+        lowercase: bool = False,
+        capitalize_first: bool = True,
     ):
         """Initialize transcriber.
 
@@ -39,6 +41,8 @@ class Transcriber:
             model_directory: Custom cache directory for model weights
             beam_size: Beam search width for decoding
             executor: Optional ThreadPoolExecutor for transcription tasks
+            lowercase: Convert output to lowercase
+            capitalize_first: Capitalize first letter of output
         """
         self.model_name = model_name
         self.device = device
@@ -49,12 +53,17 @@ class Transcriber:
         self._model_owned = executor is None
         self._model = None
         self._model_lock = asyncio.Lock()
+        self.lowercase = lowercase
+        self.capitalize_first = capitalize_first
         logger.info(
-            "Transcriber initialized: model=%s, device=%s, compute_type=%s, beam_size=%d",
+            "Transcriber initialized: model=%s, device=%s, compute_type=%s, beam_size=%d, "
+            "lowercase=%s, capitalize_first=%s",
             model_name,
             device,
             compute_type,
             beam_size,
+            lowercase,
+            capitalize_first,
         )
 
     async def _ensure_model_loaded(self) -> None:
@@ -286,7 +295,7 @@ class Transcriber:
         """Post-process transcribed text.
 
         Applies cleaning: strip whitespace, remove duplicate spaces/newlines,
-        and optional case normalization.
+        and optional case normalization based on config settings.
 
         Args:
             text: Raw transcribed text
@@ -300,7 +309,10 @@ class Transcriber:
         text = re.sub(r"\.{2,}", ".", text)
         text = re.sub(r"\s+([.,!?;:])", r"\1", text)
 
-        if len(text) > 0 and text[0].islower():
+        # Apply case transformations
+        if self.lowercase:
+            text = text.lower()
+        elif self.capitalize_first and len(text) > 0 and text[0].islower():
             text = text[0].upper() + text[1:]
 
         return text
@@ -310,8 +322,62 @@ class Transcriber:
 
         Releases model reference and stops thread pool if owned by this instance.
         """
-        logger.info("Transcriber shutting down")
+        logger.info("WhisperTranscriber shutting down")
         self._model = None
         if self._model_owned and self.executor:
             self.executor.shutdown(wait=True)
             logger.debug("Executor shut down")
+
+
+def create_transcriber(config, executor: ThreadPoolExecutor | None = None):
+    """Factory function to create the appropriate transcriber based on config.
+
+    Args:
+        config: Config object with model, deepgram, and transcription settings
+        executor: Optional ThreadPoolExecutor to share across backends
+
+    Returns:
+        WhisperTranscriber or DeepgramTranscriber instance
+
+    Raises:
+        ValueError: If backend is not supported
+    """
+    backend = config.model.backend
+    transcription = config.transcription
+
+    if backend == "faster_whisper":
+        logger.info("Creating Faster Whisper transcriber")
+        return WhisperTranscriber(
+            model_name=config.model.name,
+            device=config.model.device,
+            compute_type=config.model.compute_type,
+            model_directory=config.model.model_directory,
+            beam_size=config.model.beam_size,
+            executor=executor,
+            lowercase=transcription.lowercase,
+            capitalize_first=transcription.capitalize_first,
+        )
+    elif backend == "deepgram":
+        logger.info("Creating Deepgram transcriber")
+        from dictation_app.transcriber_deepgram import DeepgramTranscriber
+
+        return DeepgramTranscriber(
+            api_key=config.deepgram.api_key,
+            model=config.deepgram.model,
+            smart_format=config.deepgram.smart_format,
+            punctuate=config.deepgram.punctuate,
+            utterances=config.deepgram.utterances,
+            timeout=config.deepgram.timeout,
+            executor=executor,
+            lowercase=transcription.lowercase,
+            capitalize_first=transcription.capitalize_first,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported transcription backend: {backend}. "
+            f"Supported backends: faster_whisper, deepgram"
+        )
+
+
+# Backward compatibility alias
+Transcriber = WhisperTranscriber

@@ -1,6 +1,6 @@
 # dictation-app
 
-Hyprland dictation helper that records audio while a hardware button is held, transcribes with Faster Whisper, and injects the resulting text into the focused window.
+Hyprland dictation helper that records audio while a hardware button is held, transcribes with Faster Whisper, and injects the resulting text into the focused window. Supports Wayland compositors (`wtype`/`ydotool`) and X11 sessions via `xdotool`.
 
 ## Quick Start
 
@@ -38,12 +38,15 @@ name = "small"
 device = "cuda"
 
 [injector]
+# Backend options: "wtype"/"ydotool" for Wayland, "xdotool" for X11
 backend = "wtype"
 clipboard_mode = true
 
 [orchestrator]
 max_retries = 3
 ```
+
+`wtype` and `ydotool` target Wayland compositors (install `wl-copy` for clipboard fallback), while `xdotool` enables X11 sessions (install `xclip` when `clipboard_mode = true`).
 
 ### Helpful Commands
 
@@ -71,7 +74,7 @@ dictation-app run \
 1. Press and hold the configured hardware button.
 2. Audio recording starts immediately and stops on release.
 3. The captured WAV is transcribed with Faster Whisper.
-4. Text is injected using `wtype` (or `ydotool`, falling back to clipboard paste when enabled).
+4. Text is injected using `wtype`, `ydotool`, or `xdotool` (clipboard paste fallback when enabled).
 5. Errors trigger automatic retries with exponential backoff as governed by `[orchestrator]` settings.
 
 ## Development

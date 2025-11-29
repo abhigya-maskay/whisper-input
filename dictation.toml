@@ -1,24 +1,54 @@
 [input]
-device = "/dev/input/by-id/usb-MoErgo_Glove80_Left_moergo.com:GLV80-D165CFC1D344ADC4-event-kbd"
-key_code = ["KEY_F9", "KEY_F2"]
+device = "/dev/input/by-id/usb-Philips_Speech_Processing_Foot_control_ACC23305784529-event-joystick"
+# BTN_THUMB = primary recording (full dictation)
+# BTN_THUMB2 = single word dictation (hold to record, outputs first word only)
+# BTN_TRIGGER = Enter
+key_code = ["BTN_THUMB", "BTN_THUMB2", "BTN_TRIGGER"]
 
 [audio]
 sample_rate = 44100
 channels = 1
-chunk_size = 4096
-device = "Yeti X: USB Audio"
+chunk_size = 0
+device = "pipewire"
+latency = 0.1
 
 [model]
+# Backend selection: "faster_whisper" (local) or "deepgram" (cloud API)
+backend = "deepgram"
+
+# Faster Whisper settings (used when backend = "faster_whisper")
 name = "distil-large-v3"
 device = "cuda"
 compute_type = "float16"
 model_directory = "/home/ave70011/.cache/whisper"
 beam_size = 5
 
+# Deepgram API settings (used when backend = "deepgram")
+[deepgram]
+# API key can be set here or via DEEPGRAM_API_KEY environment variable
+# Get your API key from: https://console.deepgram.com/
+# api_key = ""  # Set via DEEPGRAM_API_KEY environment variable
+
+# Model selection: "nova-3" (latest, recommended), "nova-2", "whisper-large", etc.
+model = "nova-3"
+
+# Smart formatting: automatically format currency, dates, phone numbers, etc.
+smart_format = true
+
+# Punctuate: automatically add punctuation
+punctuate = true
+
+# Utterances: return utterance-level timestamps (similar to Whisper segments)
+utterances = true
+
+# API request timeout in seconds
+timeout = 30.0
+
 [injector]
-backend = "wtype"
+# Backend options: "wtype"/"ydotool" (Wayland) or "xdotool" (X11)
+backend = "xdotool"
 clipboard_mode = false
-typing_delay = 0
+typing_delay = 5
 use_newline = false
 timeout = 10.0
 dry_run = false
@@ -28,8 +58,9 @@ timeout = 30.0
 language = "en"
 noise_reduction = false
 normalize_text = true
-lowercase = false
-capitalize_first = true
+# Text formatting options
+lowercase = true
+capitalize_first = false
 
 [orchestrator]
 max_retries = 3

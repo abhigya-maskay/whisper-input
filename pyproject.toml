@@ -9,6 +9,7 @@ description = "Hyprland dictation helper via Faster Whisper"
 requires-python = ">=3.10"
 dependencies = [
   "faster-whisper",
+  "deepgram-sdk",
   "numpy",
   "sounddevice",
   "soundfile",

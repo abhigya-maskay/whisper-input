@@ -92,9 +92,9 @@ class TestConfigDataclasses:
         """Test InputConfig with multiple key codes."""
         cfg = InputConfig(
             device="/dev/input/test",
-            key_code=["BTN_EXTRA", "KEY_F2"],
+            key_code=["BTN_EXTRA", "BTN_THUMB2"],
         )
-        assert cfg.key_codes == ("BTN_EXTRA", "KEY_F2")
+        assert cfg.key_codes == ("BTN_EXTRA", "BTN_THUMB2")
         assert cfg.key_code == "BTN_EXTRA"
 
     def test_audio_config_defaults(self):

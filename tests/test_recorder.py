@@ -53,9 +53,14 @@ class TestAudioRecorderInit:
             AudioRecorder(channels=3)
 
     def test_init_invalid_chunk_size(self):
-        """Test initialization fails with invalid chunk size."""
-        with pytest.raises(ValueError, match="chunk_size must be positive"):
-            AudioRecorder(chunk_size=0)
+        """Test initialization fails with negative chunk size."""
+        with pytest.raises(ValueError, match="chunk_size must be non-negative"):
+            AudioRecorder(chunk_size=-1)
+
+    def test_init_zero_chunk_size_allowed(self):
+        """Test chunk_size=0 is accepted and treated as auto."""
+        recorder = AudioRecorder(chunk_size=0)
+        assert recorder.chunk_size == 0
 
 
 class TestAudioRecorderContextManager:

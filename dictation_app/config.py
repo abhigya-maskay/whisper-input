@@ -18,6 +18,7 @@ __all__ = [
     "InputConfig",
     "AudioConfig",
     "ModelConfig",
+    "DeepgramConfig",
     "InjectorConfig",
     "TranscriptionConfig",
     "OrchestratorConfig",
@@ -40,12 +41,33 @@ class ConfigError(Exception):
 class InputConfig:
     """Input device configuration."""
 
-    device: str
+    device: str | Sequence[str]
     key_code: str | Sequence[str]
+    devices: tuple[str, ...] = field(init=False)
     key_codes: tuple[str, ...] = field(init=False)
 
     def __post_init__(self) -> None:
-        """Normalize key code configuration."""
+        """Normalize device and key code configuration."""
+        # Normalize devices
+        if isinstance(self.device, str):
+            devices = (self.device,)
+        else:
+            try:
+                devices = tuple(self.device)
+            except TypeError as exc:
+                raise ConfigError(f"input.device must be a string or sequence of strings: {exc}") from exc
+
+            if not devices:
+                raise ConfigError("input.device must contain at least one device path")
+
+        for dev in devices:
+            if not isinstance(dev, str) or not dev:
+                raise ConfigError("input.device entries must be non-empty strings")
+
+        self.devices = devices
+        self.device = devices[0]
+
+        # Normalize key codes
         if isinstance(self.key_code, str):
             key_codes = (self.key_code,)
         else:
@@ -73,12 +95,14 @@ class AudioConfig:
     channels: int = 1
     chunk_size: int = 4096
     device: int | str | None = None
+    latency: float | str | None = None
 
 
 @dataclass
 class ModelConfig:
-    """Whisper model configuration."""
+    """Whisper model configuration (for faster-whisper backend)."""
 
+    backend: str = "faster_whisper"
     name: str = "base"
     device: str = "cpu"
     compute_type: str = "int8"
@@ -87,12 +111,24 @@ class ModelConfig:
 
 
 @dataclass
+class DeepgramConfig:
+    """Deepgram API configuration (for deepgram backend)."""
+
+    api_key: str | None = None
+    model: str = "nova-3"
+    smart_format: bool = True
+    punctuate: bool = True
+    utterances: bool = True
+    timeout: float = 30.0
+
+
+@dataclass
 class InjectorConfig:
     """Text injection configuration."""
 
     backend: str = "wtype"
     clipboard_mode: bool = False
-    typing_delay: int = 50
+    typing_delay: int = 5
     use_newline: bool = False
     timeout: float = 10.0
     dry_run: bool = False
@@ -135,6 +171,7 @@ class Config:
     input: InputConfig
     audio: AudioConfig
     model: ModelConfig
+    deepgram: DeepgramConfig
     injector: InjectorConfig
     transcription: TranscriptionConfig
     orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
@@ -171,11 +208,12 @@ class Config:
         raw_data = _load_toml_file(resolved_path)
 
         try:
-            coerced = _coerce_config_values(raw_data)
+            coerced = _coerce_config_values(raw_data, env)
             return cls(
                 input=InputConfig(**coerced.get("input", {})),
                 audio=AudioConfig(**coerced.get("audio", {})),
                 model=ModelConfig(**coerced.get("model", {})),
+                deepgram=DeepgramConfig(**coerced.get("deepgram", {})),
                 injector=InjectorConfig(**coerced.get("injector", {})),
                 transcription=TranscriptionConfig(**coerced.get("transcription", {})),
                 orchestrator=OrchestratorConfig(**coerced.get("orchestrator", {})),
@@ -191,13 +229,14 @@ class Config:
             ConfigError: If configured devices unavailable or invalid
         """
         try:
-            validate_input_device(self.input.device)
+            validate_input_device(self.input.devices)
             validate_audio_device(
                 self.audio.sample_rate,
                 self.audio.channels,
                 self.audio.device,
             )
             validate_model_config(self.model)
+            validate_deepgram_config(self.model, self.deepgram)
             validate_injector_config(self.injector)
         except ConfigError:
             raise
@@ -266,20 +305,21 @@ def _load_toml_file(path: Path) -> dict:
         raise ConfigError(f"Failed to parse config file {path}: {e}") from e
 
 
-def _coerce_config_values(raw_data: dict) -> dict:
+def _coerce_config_values(raw_data: dict, env: Mapping[str, str]) -> dict:
     """Normalize raw TOML data for dataclass instantiation.
 
     Handles type coercion and default fallback for optional sections.
 
     Args:
         raw_data: Raw parsed TOML dictionary
+        env: Environment variables for overrides
 
     Returns:
         Coerced dictionary ready for dataclass instantiation
     """
     coerced = {}
 
-    for section in ("input", "audio", "model", "injector", "transcription", "orchestrator", "general"):
+    for section in ("input", "audio", "model", "deepgram", "injector", "transcription", "orchestrator", "general"):
         coerced[section] = raw_data.get(section, {})
         if not isinstance(coerced[section], dict):
             raise ConfigError(f"Section [{section}] must be a table")
@@ -300,6 +340,11 @@ def _coerce_config_values(raw_data: dict) -> dict:
 
     if "input" in raw_data and not input_section.get("key_code"):
         raise ConfigError("input.key_code is required")
+
+    # Handle Deepgram API key from environment variable if not in config
+    deepgram_section = coerced["deepgram"]
+    if not deepgram_section.get("api_key"):
+        deepgram_section["api_key"] = env.get("DEEPGRAM_API_KEY")
 
     return coerced
 
@@ -377,11 +422,11 @@ def discover_audio_devices() -> list[dict]:
     return devices
 
 
-def validate_input_device(device_path: str) -> None:
-    """Validate that configured input device exists and is accessible.
+def validate_input_device(device_path: str | Sequence[str]) -> None:
+    """Validate that configured input device(s) exist and are accessible.
 
     Args:
-        device_path: Path to input device (e.g., /dev/input/by-id/...)
+        device_path: Path(s) to input device(s) (e.g., /dev/input/by-id/...)
 
     Raises:
         ConfigError: If device not found or not accessible
@@ -392,24 +437,32 @@ def validate_input_device(device_path: str) -> None:
         logger.warning("evdev not available, skipping input device validation")
         return
 
-    path = Path(device_path)
-    if not path.exists():
-        available = discover_input_devices()
-        device_list = (
-            "\n  ".join(f"{d['path']} ({d['name']})" for d in available) or "none found"
-        )
-        raise ConfigError(
-            f"Input device not found: {device_path}\n"
-            f"Available devices:\n  {device_list}"
-        )
+    # Normalize to list
+    if isinstance(device_path, str):
+        device_paths = [device_path]
+    else:
+        device_paths = list(device_path)
 
-    try:
-        evdev.InputDevice(device_path)
-    except (OSError, PermissionError) as e:
-        raise ConfigError(
-            f"Cannot access input device {device_path}: {e}\n"
-            f"Ensure you are in the 'input' group: groups | grep input"
-        ) from e
+    # Validate each device
+    for dev_path in device_paths:
+        path = Path(dev_path)
+        if not path.exists():
+            available = discover_input_devices()
+            device_list = (
+                "\n  ".join(f"{d['path']} ({d['name']})" for d in available) or "none found"
+            )
+            raise ConfigError(
+                f"Input device not found: {dev_path}\n"
+                f"Available devices:\n  {device_list}"
+            )
+
+        try:
+            evdev.InputDevice(dev_path)
+        except (OSError, PermissionError) as e:
+            raise ConfigError(
+                f"Cannot access input device {dev_path}: {e}\n"
+                f"Ensure you are in the 'input' group: groups | grep input"
+            ) from e
 
 
 def validate_audio_device(sample_rate: int, channels: int, device: int | str | None) -> None:
@@ -480,6 +533,13 @@ def validate_model_config(model_cfg: ModelConfig) -> None:
     Raises:
         ConfigError: If model configuration is invalid
     """
+    valid_backends = ("faster_whisper", "deepgram")
+    if model_cfg.backend not in valid_backends:
+        raise ConfigError(
+            f"Invalid backend '{model_cfg.backend}'. "
+            f"Must be one of: {', '.join(valid_backends)}"
+        )
+
     valid_compute_types = ("int8", "float16", "float32", "default")
     if model_cfg.compute_type not in valid_compute_types:
         raise ConfigError(
@@ -498,6 +558,29 @@ def validate_model_config(model_cfg: ModelConfig) -> None:
         raise ConfigError(f"beam_size must be positive, got {model_cfg.beam_size}")
 
 
+def validate_deepgram_config(model_cfg: ModelConfig, deepgram_cfg: DeepgramConfig) -> None:
+    """Validate Deepgram configuration when backend is deepgram.
+
+    Args:
+        model_cfg: ModelConfig instance (to check backend)
+        deepgram_cfg: DeepgramConfig instance
+
+    Raises:
+        ConfigError: If Deepgram configuration is invalid
+    """
+    if model_cfg.backend != "deepgram":
+        return
+
+    if not deepgram_cfg.api_key:
+        raise ConfigError(
+            "Deepgram API key is required when backend is 'deepgram'. "
+            "Set it in config file or via DEEPGRAM_API_KEY environment variable."
+        )
+
+    if deepgram_cfg.timeout <= 0:
+        raise ConfigError(f"Deepgram timeout must be positive, got {deepgram_cfg.timeout}")
+
+
 def validate_injector_config(injector_cfg: InjectorConfig) -> None:
     """Validate injector configuration.
 
@@ -507,7 +590,7 @@ def validate_injector_config(injector_cfg: InjectorConfig) -> None:
     Raises:
         ConfigError: If injector configuration is invalid
     """
-    valid_backends = ("wtype", "ydotool")
+    valid_backends = ("wtype", "ydotool", "xdotool")
     if injector_cfg.backend not in valid_backends:
         raise ConfigError(
             f"Invalid backend '{injector_cfg.backend}'. "

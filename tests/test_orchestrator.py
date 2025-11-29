@@ -19,6 +19,10 @@ def mock_button_listener():
     """Create mock ButtonListener."""
     mock = AsyncMock()
     mock.listen = AsyncMock()
+    mock.__aenter__ = AsyncMock(return_value=mock)
+    mock.__aexit__ = AsyncMock(return_value=None)
+    mock.key_codes = ("BTN_EXTRA", "BTN_THUMB2", "BTN_TRIGGER")
+    mock.key_code = "BTN_EXTRA"
     return mock
 
 
@@ -42,6 +46,7 @@ def mock_injector():
     """Create mock Injector."""
     mock = AsyncMock()
     mock.inject_text = AsyncMock()
+    mock.press_key_action = AsyncMock()
     return mock
 
 
@@ -147,6 +152,25 @@ class TestOrchestratorBasics:
         orchestrator.recorder.stop.assert_not_called()
         assert orchestrator.state == State.IDLE
 
+    @pytest.mark.asyncio
+    async def test_aux_button_triggers_enter(self, orchestrator, mock_injector):
+        """Auxiliary button mapped to Enter triggers injector action."""
+        event = ButtonEvent(key_code="BTN_TRIGGER", pressed=True, timestamp=0.0)
+        await orchestrator._handle_aux_button(event)
+
+        mock_injector.press_key_action.assert_awaited_once_with("enter")
+
+    @pytest.mark.asyncio
+    async def test_aux_button_release_ignored(self, orchestrator, mock_injector):
+        """Auxiliary button release should not trigger injector."""
+        event_press = ButtonEvent(key_code="BTN_TRIGGER", pressed=True, timestamp=0.0)
+        event_release = ButtonEvent(key_code="BTN_TRIGGER", pressed=False, timestamp=0.1)
+
+        await orchestrator._handle_aux_button(event_press)
+        await orchestrator._handle_aux_button(event_release)
+
+        mock_injector.press_key_action.assert_awaited_once_with("enter")
+
 
 class TestNominalFlow:
     """Test complete nominal flow."""
@@ -165,9 +189,9 @@ class TestNominalFlow:
         mock_recorder.stop.return_value = temp_audio_file
 
         async def button_events():
-            yield ButtonEvent(pressed=True, timestamp=0.0)
+            yield ButtonEvent(key_code="BTN_EXTRA", pressed=True, timestamp=0.0)
             await asyncio.sleep(0.05)
-            yield ButtonEvent(pressed=False, timestamp=0.1)
+            yield ButtonEvent(key_code="BTN_EXTRA", pressed=False, timestamp=0.1)
             await asyncio.sleep(0.5)
 
         # Mock the listen method to return async generator

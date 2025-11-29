@@ -35,24 +35,26 @@ class AudioRecorder:
         silence_threshold: float = 0.02,
         silence_duration: float = 0.2,
         device: int | None = None,
+        latency: float | str | None = None,
     ):
         """Initialize audio recorder.
 
         Args:
             sample_rate: Sample rate in Hz
             channels: Number of channels
-            chunk_size: Chunk size for streaming
+            chunk_size: Chunk size for streaming (0 or None lets PortAudio choose)
             trim_silence: Whether to trim leading/trailing silence
             silence_threshold: RMS threshold for silence detection (0-1 range)
             silence_duration: Minimum silence duration in seconds to trim
-        device: Audio device index or name (None for default)
+            device: Audio device index or name (None for default)
+            latency: Desired input latency hint for PortAudio ('low', float, etc.)
         """
         if sample_rate <= 0:
             raise ValueError("sample_rate must be positive")
         if channels not in (1, 2):
             raise ValueError("channels must be 1 or 2")
-        if chunk_size <= 0:
-            raise ValueError("chunk_size must be positive")
+        if chunk_size is not None and chunk_size < 0:
+            raise ValueError("chunk_size must be non-negative")
 
         self.sample_rate = sample_rate
         self.channels = channels
@@ -61,11 +63,13 @@ class AudioRecorder:
         self.silence_threshold = silence_threshold
         self.silence_duration = silence_duration
         self.device = device
+        self.latency = latency
 
         self._state = _RecorderState.IDLE
         self._stream = None
         self._buffer = deque()
         self._temp_file = None
+        self._overflow_count = 0
 
         logger.info(
             "AudioRecorder initialized: %d Hz, %d channels, device=%s",
@@ -103,14 +107,21 @@ class AudioRecorder:
 
         try:
             self._buffer.clear()
-            self._stream = sounddevice.InputStream(
-                device=resolved_device,
-                samplerate=self.sample_rate,
-                channels=self.channels,
-                blocksize=self.chunk_size,
-                callback=self._callback,
-                dtype="float32",
-            )
+            self._overflow_count = 0
+            stream_kwargs = {
+                "device": resolved_device,
+                "samplerate": self.sample_rate,
+                "channels": self.channels,
+                "callback": self._callback,
+                "dtype": "float32",
+            }
+            blocksize = None if not self.chunk_size else self.chunk_size
+            if blocksize is not None:
+                stream_kwargs["blocksize"] = blocksize
+            if self.latency is not None:
+                stream_kwargs["latency"] = self.latency
+
+            self._stream = sounddevice.InputStream(**stream_kwargs)
             self._stream.start()
             self._state = _RecorderState.RECORDING
             logger.info(
@@ -146,6 +157,13 @@ class AudioRecorder:
                 self._stream.stop()
                 self._stream.close()
                 self._stream = None
+
+            # Report overflow warnings if any occurred
+            if self._overflow_count > 0:
+                logger.warning(
+                    "Audio stream had %d overflow events during recording",
+                    self._overflow_count
+                )
 
             if not self._buffer:
                 raise RuntimeError("No audio frames captured")
@@ -209,7 +227,7 @@ class AudioRecorder:
             status: stream status flags
         """
         if status:
-            logger.warning("Audio stream status: %s", status)
+            self._overflow_count += 1
 
         self._buffer.append(indata.copy())
 

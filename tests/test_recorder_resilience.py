@@ -119,7 +119,7 @@ class TestRecorderEdgeCases:
 
     def test_negative_chunk_size(self):
         """Test invalid chunk size is rejected."""
-        with pytest.raises(ValueError, match="chunk_size must be positive"):
+        with pytest.raises(ValueError, match="chunk_size must be non-negative"):
             AudioRecorder(chunk_size=-1)
 
     def test_mono_vs_stereo_initialization(self):

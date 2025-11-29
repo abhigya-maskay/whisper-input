@@ -33,11 +33,11 @@ class TestButtonListener:
         """Test factory method with multiple key codes."""
         config = InputConfig(
             device="/dev/input/by-id/test-device",
-            key_code=["BTN_EXTRA", "KEY_F2"],
+            key_code=["BTN_EXTRA", "BTN_THUMB2"],
         )
         listener = ButtonListener.from_config(config, debounce_ms=75)
 
-        assert listener.key_codes == ("BTN_EXTRA", "KEY_F2")
+        assert listener.key_codes == ("BTN_EXTRA", "BTN_THUMB2")
         assert listener.key_code == "BTN_EXTRA"
         assert listener.debounce_ms == 75
 
@@ -73,7 +73,9 @@ class TestButtonListener:
                     break
         
         assert len(events) == 2
+        assert events[0].key_code == "BTN_EXTRA"
         assert events[0].pressed is True
+        assert events[1].key_code == "BTN_EXTRA"
         assert events[1].pressed is False
         assert events[0].timestamp > 0
         assert events[1].timestamp > 0
@@ -110,8 +112,10 @@ class TestButtonListener:
         
         # Should have filtered out rapid toggles within debounce window
         assert len(emitted_events) >= 2
+        assert emitted_events[0].key_code == "BTN_EXTRA"
         assert emitted_events[0].pressed is True
         # Last event should be release
+        assert emitted_events[-1].key_code == "BTN_EXTRA"
         assert emitted_events[-1].pressed is False
 
     @patch('dictation_app.button_listener.InputDevice')

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import re
 import tempfile
 from enum import Enum
 from pathlib import Path
@@ -82,6 +83,21 @@ class Orchestrator:
         self.transcriber = transcriber
         self.injector = injector
         self.config = config or OrchestratorConfig()
+        self._primary_key_code = button_listener.key_codes[0] if button_listener.key_codes else button_listener.key_code
+        # Second button is single-word recording mode (outputs only first word)
+        self._single_word_key_code: str | None = None
+        if len(button_listener.key_codes) > 1:
+            self._single_word_key_code = button_listener.key_codes[1]
+            logger.info("Single-word recording key configured: %s", self._single_word_key_code)
+        # Track which recording mode is active
+        self._recording_single_word = False
+        # Auxiliary actions start at index 2
+        self._auxiliary_key_actions: dict[str, str] = {}
+        if len(button_listener.key_codes) > 2:
+            self._auxiliary_key_actions[button_listener.key_codes[2]] = "enter"
+        if self._auxiliary_key_actions:
+            mapping_desc = ", ".join(f"{key}->{action}" for key, action in self._auxiliary_key_actions.items())
+            logger.info("Auxiliary pedal mappings configured: %s", mapping_desc)
 
         self.state = State.IDLE
         self._shutdown_event = asyncio.Event()
@@ -97,7 +113,7 @@ class Orchestrator:
     async def startup(self) -> None:
         """Initialize orchestrator and register callbacks.
 
-        Primes button listener, resets cancellation token, and configures logging hooks.
+        Resets cancellation token and configures logging hooks.
         Ensures event handling infrastructure is ready before entering the event loop.
 
         Raises:
@@ -109,13 +125,13 @@ class Orchestrator:
             self._recording_cancel_token.reset()
             logger.debug("Recording cancellation token reset")
 
-            # Prime button listener device (ensure it can be opened)
             try:
+                logger.debug("Priming button listener availability")
                 async with self.button_listener:
-                    logger.debug("Button listener device primed successfully")
-            except Exception as e:
-                logger.warning("Failed to prime button listener: %s", e)
-                raise RuntimeError(f"Failed to prime button listener: {e}") from e
+                    logger.debug("Button listener primed successfully")
+            except Exception as exc:
+                logger.error("Failed to prime button listener: %s", exc)
+                raise RuntimeError("Failed to prime button listener") from exc
 
             logger.debug(
                 "Config: max_retries=%d, error_recovery_delay=%.1fs, "
@@ -142,21 +158,35 @@ class Orchestrator:
         await self.startup()
 
         try:
-            async for button_event in self.button_listener.listen():
-                if self._shutdown_event.is_set():
-                    logger.info("Shutdown signal received, exiting event loop")
-                    self.state = State.SHUTDOWN
-                    break
+            async with self.button_listener:
+                logger.debug("Button listener devices opened")
+                async for button_event in self.button_listener.listen():
+                    if self._shutdown_event.is_set():
+                        logger.info("Shutdown signal received, exiting event loop")
+                        self.state = State.SHUTDOWN
+                        break
 
-                try:
-                    if button_event.pressed:
-                        await self._on_button_pressed()
-                    else:
-                        await self._on_button_released()
-                except Exception as e:
-                    logger.error("Error in button event handler: %s", e, exc_info=True)
-                    self._last_error = e
-                    await self._error_recovery(e)
+                    try:
+                        if button_event.key_code == self._primary_key_code:
+                            # Primary recording (full dictation)
+                            self._recording_single_word = False
+                            if button_event.pressed:
+                                await self._on_button_pressed()
+                            else:
+                                await self._on_button_released()
+                        elif button_event.key_code == self._single_word_key_code:
+                            # Single-word recording mode
+                            self._recording_single_word = True
+                            if button_event.pressed:
+                                await self._on_button_pressed()
+                            else:
+                                await self._on_button_released()
+                        else:
+                            await self._handle_aux_button(button_event)
+                    except Exception as e:
+                        logger.error("Error in button event handler: %s", e, exc_info=True)
+                        self._last_error = e
+                        await self._error_recovery(e)
 
         except asyncio.CancelledError:
             logger.info("Orchestrator cancelled")
@@ -251,6 +281,23 @@ class Orchestrator:
             logger.error("Failed to start recorder: %s", e)
             self.state = State.ERROR
             raise
+
+    async def _handle_aux_button(self, event: ButtonEvent) -> None:
+        """Handle auxiliary pedal button actions (e.g., Shift+Tab, Enter)."""
+        action = self._auxiliary_key_actions.get(event.key_code)
+        if not action:
+            logger.debug("No auxiliary action configured for key %s", event.key_code)
+            return
+
+        if not event.pressed:
+            logger.debug("Ignoring release for auxiliary key %s", event.key_code)
+            return
+
+        logger.info("Executing auxiliary action '%s' for key %s", action, event.key_code)
+        try:
+            await self.injector.press_key_action(action)
+        except Exception as e:
+            logger.error("Auxiliary action '%s' failed: %s", action, e, exc_info=True)
 
     async def _on_button_released(self) -> None:
         """Handle button release event: transition RECORDING -> TRANSCRIBING.
@@ -365,6 +412,15 @@ class Orchestrator:
             self.state = State.ERROR
             await self._error_recovery(last_error or RuntimeError("Transcription failed"))
             return
+
+        # Single-word mode: extract only the first word, lowercase, no punctuation
+        if self._recording_single_word and text:
+            clean_text = re.sub(r"[.,!?;:'\"-]", "", text)
+            words = clean_text.split()
+            if words:
+                original_text = text
+                text = words[0].lower()
+                logger.info("Single-word mode: extracted '%s' from '%s'", text, original_text)
 
         # Injection stage with retries mirroring transcription behaviour
         logger.info("State transition: TRANSCRIBING -> INJECTING")

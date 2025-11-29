@@ -19,6 +19,10 @@ def mock_button_listener():
     """Create mock ButtonListener."""
     mock = AsyncMock()
     mock.listen = AsyncMock()
+    mock.__aenter__ = AsyncMock(return_value=mock)
+    mock.__aexit__ = AsyncMock(return_value=None)
+    mock.key_codes = ("BTN_EXTRA", "BTN_THUMB2", "BTN_TRIGGER")
+    mock.key_code = "BTN_EXTRA"
     return mock
 
 
@@ -42,6 +46,8 @@ def mock_injector():
     """Create mock Injector."""
     mock = AsyncMock()
     mock.inject_text = AsyncMock()
+    # We'll also rely on auxiliary actions in certain tests
+    mock.press_key_action = AsyncMock()
     return mock
 
 

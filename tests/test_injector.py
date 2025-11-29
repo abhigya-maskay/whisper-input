@@ -42,6 +42,17 @@ class TestInjectorInitialization:
         mock_which.assert_called_with("ydotool")
 
     @patch("dictation_app.injector.shutil.which")
+    def test_init_xdotool_backend_success(self, mock_which):
+        """Test initialization with xdotool backend when binary is available."""
+        mock_which.return_value = "/usr/bin/xdotool"
+
+        config = InjectorConfig(backend="xdotool", clipboard_mode=False)
+        injector = Injector(config)
+
+        assert injector.backend == "xdotool"
+        mock_which.assert_called_with("xdotool")
+
+    @patch("dictation_app.injector.shutil.which")
     def test_init_missing_backend_binary(self, mock_which):
         """Test initialization fails when backend binary is not found."""
         mock_which.return_value = None
@@ -89,6 +100,43 @@ class TestInjectorInitialization:
             Injector(config)
 
         assert "wl-copy" in str(exc_info.value)
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_init_clipboard_mode_validates_xclip(self, mock_which):
+        """Clipboard mode for xdotool validates xclip."""
+
+        def which_side_effect(binary):
+            if binary == "xdotool":
+                return "/usr/bin/xdotool"
+            if binary == "xclip":
+                return "/usr/bin/xclip"
+            return None
+
+        mock_which.side_effect = which_side_effect
+
+        config = InjectorConfig(backend="xdotool", clipboard_mode=True)
+        injector = Injector(config)
+
+        assert injector.clipboard_mode is True
+        assert mock_which.call_count >= 2
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_init_clipboard_mode_missing_xclip(self, mock_which):
+        """Initialization fails when xclip missing for clipboard mode."""
+
+        def which_side_effect(binary):
+            if binary == "xdotool":
+                return "/usr/bin/xdotool"
+            return None
+
+        mock_which.side_effect = which_side_effect
+
+        config = InjectorConfig(backend="xdotool", clipboard_mode=True)
+
+        with pytest.raises(CommandNotFoundError) as exc_info:
+            Injector(config)
+
+        assert "xclip" in str(exc_info.value)
 
     @patch("dictation_app.injector.shutil.which")
     def test_init_respects_config_settings(self, mock_which):
@@ -190,7 +238,214 @@ class TestCommandResolution:
 
         assert "hello\n" in cmd
 
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_xdotool_command_basic(self, mock_which):
+        """Test xdotool command with clearmodifiers flag."""
+        mock_which.return_value = "/usr/bin/xdotool"
 
+        config = InjectorConfig(backend="xdotool", typing_delay=0)
+        injector = Injector(config)
+
+        cmd = injector._resolve_xdotool_command("hello")
+
+        assert cmd[:3] == ["/usr/bin/xdotool", "type", "--clearmodifiers"]
+        assert cmd[-1] == "hello"
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_xdotool_command_with_delay_and_newline(self, mock_which):
+        """Test xdotool command adds delay and newline."""
+        mock_which.return_value = "/usr/bin/xdotool"
+
+        config = InjectorConfig(backend="xdotool", typing_delay=25, use_newline=True)
+        injector = Injector(config)
+
+        cmd = injector._resolve_xdotool_command("hello")
+
+        assert "--delay" in cmd
+        assert "25" in cmd
+        assert cmd[-1] == "hello\n"
+
+
+class TestKeyActions:
+    """Tests for discrete key action helpers."""
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_wtype_key_action_shift_tab(self, mock_which):
+        """Shift+Tab command uses modifier sequence."""
+        mock_which.return_value = "/usr/bin/wtype"
+
+        config = InjectorConfig(backend="wtype", typing_delay=50)
+        injector = Injector(config)
+
+        cmd = injector._resolve_wtype_key_action("shift_tab")
+
+        assert cmd == [
+            "/usr/bin/wtype",
+            "-d",
+            "50",
+            "-M",
+            "shift",
+            "-k",
+            "Tab",
+            "-m",
+            "shift",
+        ]
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_wtype_key_action_enter(self, mock_which):
+        """Enter command resolves correctly."""
+        mock_which.return_value = "/usr/bin/wtype"
+
+        config = InjectorConfig(backend="wtype", typing_delay=0)
+        injector = Injector(config)
+
+        cmd = injector._resolve_wtype_key_action("enter")
+
+        assert cmd == ["/usr/bin/wtype", "-k", "Return"]
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_ydotool_key_action_shift_tab(self, mock_which):
+        """Shift+Tab with ydotool uses keycodes."""
+        mock_which.return_value = "/usr/bin/ydotool"
+
+        config = InjectorConfig(backend="ydotool", typing_delay=25)
+        injector = Injector(config)
+
+        cmd = injector._resolve_ydotool_key_action("shift_tab")
+
+        assert cmd == [
+            "/usr/bin/ydotool",
+            "key",
+            "-d",
+            "25",
+            "42:1",
+            "15:1",
+            "15:0",
+            "42:0",
+        ]
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_ydotool_key_action_enter(self, mock_which):
+        """Enter action uses correct keycodes."""
+        mock_which.return_value = "/usr/bin/ydotool"
+
+        config = InjectorConfig(backend="ydotool", typing_delay=0)
+        injector = Injector(config)
+
+        cmd = injector._resolve_ydotool_key_action("enter")
+
+        assert cmd == ["/usr/bin/ydotool", "key", "28:1", "28:0"]
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_xdotool_key_action_shift_tab(self, mock_which):
+        """Shift+Tab for xdotool uses clearmodifiers."""
+        mock_which.return_value = "/usr/bin/xdotool"
+
+        config = InjectorConfig(backend="xdotool", typing_delay=10)
+        injector = Injector(config)
+
+        cmd = injector._resolve_xdotool_key_action("shift_tab")
+
+        assert cmd[:2] == ["/usr/bin/xdotool", "key"]
+        assert "--clearmodifiers" in cmd
+        assert "Shift+Tab" in cmd
+        assert "--delay" in cmd
+
+    @patch("dictation_app.injector.shutil.which")
+    def test_resolve_xdotool_key_action_enter(self, mock_which):
+        """Enter action resolves for xdotool."""
+        mock_which.return_value = "/usr/bin/xdotool"
+
+        config = InjectorConfig(backend="xdotool", typing_delay=0)
+        injector = Injector(config)
+
+        cmd = injector._resolve_xdotool_key_action("enter")
+
+        assert "Return" in cmd
+
+    @patch("dictation_app.injector.shutil.which")
+    @pytest.mark.asyncio
+    async def test_press_key_action_wtype(self, mock_which):
+        """press_key_action executes resolved command."""
+        mock_which.return_value = "/usr/bin/wtype"
+
+        config = InjectorConfig(backend="wtype", typing_delay=40)
+        injector = Injector(config)
+
+        with patch.object(injector, "_run_key_command", new_callable=AsyncMock) as mock_run:
+            await injector.press_key_action("shift_tab")
+
+        mock_run.assert_awaited_once()
+        cmd, action = mock_run.await_args.args
+        assert action == "shift_tab"
+        assert cmd == [
+            "/usr/bin/wtype",
+            "-d",
+            "40",
+            "-M",
+            "shift",
+            "-k",
+            "Tab",
+            "-m",
+            "shift",
+        ]
+
+    @patch("dictation_app.injector.shutil.which")
+    @pytest.mark.asyncio
+    async def test_press_key_action_ydotool(self, mock_which):
+        """press_key_action works for ydotool backend."""
+        mock_which.return_value = "/usr/bin/ydotool"
+
+        config = InjectorConfig(backend="ydotool", typing_delay=30)
+        injector = Injector(config)
+
+        with patch.object(injector, "_run_key_command", new_callable=AsyncMock) as mock_run:
+            await injector.press_key_action("enter")
+
+        mock_run.assert_awaited_once()
+        cmd, action = mock_run.await_args.args
+        assert action == "enter"
+        assert cmd == [
+            "/usr/bin/ydotool",
+            "key",
+            "-d",
+            "30",
+            "28:1",
+            "28:0",
+        ]
+
+    @patch("dictation_app.injector.shutil.which")
+    @pytest.mark.asyncio
+    async def test_press_key_action_xdotool(self, mock_which):
+        """press_key_action works for xdotool backend."""
+        mock_which.return_value = "/usr/bin/xdotool"
+
+        config = InjectorConfig(backend="xdotool", typing_delay=15)
+        injector = Injector(config)
+
+        with patch.object(injector, "_run_key_command", new_callable=AsyncMock) as mock_run:
+            await injector.press_key_action("enter")
+
+        mock_run.assert_awaited_once()
+        cmd, action = mock_run.await_args.args
+        assert action == "enter"
+        assert cmd[:2] == ["/usr/bin/xdotool", "key"]
+        assert "--delay" in cmd
+        assert "Return" in cmd
+
+    @patch("dictation_app.injector.shutil.which")
+    @pytest.mark.asyncio
+    async def test_press_key_action_dry_run(self, mock_which):
+        """Dry-run skips execution."""
+        mock_which.return_value = "/usr/bin/wtype"
+
+        config = InjectorConfig(backend="wtype", dry_run=True)
+        injector = Injector(config)
+
+        with patch.object(injector, "_run_key_command", new_callable=AsyncMock) as mock_run:
+            await injector.press_key_action("enter")
+
+        mock_run.assert_not_called()
 class TestDryRunMode:
     """Tests for dry-run mode functionality."""
 
@@ -263,6 +518,28 @@ class TestWtypeInjection:
         mock_run.assert_called_once()
         call_args = mock_run.call_args
         assert "/usr/bin/wtype" in call_args[0][0]
+
+    @patch("dictation_app.injector.shutil.which")
+    @patch("dictation_app.injector.subprocess.run")
+    @pytest.mark.asyncio
+    async def test_inject_wtype_scales_timeout_for_long_text(self, mock_run, mock_which):
+        """Ensure timeout scales when typing delay would exceed base timeout."""
+        mock_which.return_value = "/usr/bin/wtype"
+        mock_run.return_value = MagicMock(returncode=0, stderr=None)
+
+        config = InjectorConfig(backend="wtype", typing_delay=25, timeout=5.0, dry_run=False)
+        injector = Injector(config)
+
+        captured_timeout = {}
+
+        async def wait_for_stub(coro, timeout):
+            captured_timeout["value"] = timeout
+            return await coro
+
+        with patch("dictation_app.injector.asyncio.wait_for", side_effect=wait_for_stub):
+            await injector.inject_text("x" * 400)
+
+        assert captured_timeout["value"] > config.timeout
 
     @patch("dictation_app.injector.shutil.which")
     @patch("dictation_app.injector.subprocess.run")
@@ -343,6 +620,45 @@ class TestYdotoolInjection:
         assert "exit code 127" in str(exc_info.value)
 
 
+class TestXdotoolInjection:
+    """Tests for xdotool backend injection."""
+
+    @patch("dictation_app.injector.shutil.which")
+    @patch("dictation_app.injector.subprocess.run")
+    @pytest.mark.asyncio
+    async def test_inject_xdotool_success(self, mock_run, mock_which):
+        """Test successful text injection via xdotool."""
+        mock_which.return_value = "/usr/bin/xdotool"
+        mock_run.return_value = MagicMock(returncode=0, stderr=None)
+
+        config = InjectorConfig(backend="xdotool", dry_run=False)
+        injector = Injector(config)
+
+        await injector.inject_text("hello world")
+
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        assert "/usr/bin/xdotool" in call_args[0][0]
+
+    @patch("dictation_app.injector.shutil.which")
+    @patch("dictation_app.injector.subprocess.run")
+    @pytest.mark.asyncio
+    async def test_inject_xdotool_failure_non_zero_exit(self, mock_run, mock_which):
+        """Test xdotool injection failure with non-zero exit code."""
+        mock_which.return_value = "/usr/bin/xdotool"
+        mock_run.return_value = MagicMock(
+            returncode=2, stderr=b"xdotool error"
+        )
+
+        config = InjectorConfig(backend="xdotool", clipboard_mode=False, dry_run=False)
+        injector = Injector(config)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await injector.inject_text("hello")
+
+        assert "exit code 2" in str(exc_info.value)
+
+
 class TestClipboardFallback:
     """Tests for clipboard fallback functionality."""
 
@@ -400,7 +716,7 @@ class TestClipboardFallback:
 
         def run_side_effect(*args, **kwargs):
             cmd = args[0]
-            if "wl-copy" in cmd:
+            if any("wl-copy" in token for token in cmd):
                 return MagicMock(returncode=1, stderr=b"clipboard error")
             return MagicMock(returncode=1, stderr=b"primary failed")
 
@@ -413,6 +729,33 @@ class TestClipboardFallback:
             await injector.inject_text("hello")
 
         assert "wl-copy" in str(exc_info.value) or "clipboard error" in str(exc_info.value)
+
+    @patch("dictation_app.injector.shutil.which")
+    @patch("dictation_app.injector.subprocess.run")
+    @pytest.mark.asyncio
+    async def test_clipboard_fallback_xclip_failure(self, mock_run, mock_which):
+        """Test clipboard helper failure on xdotool backend."""
+
+        def which_side_effect(binary):
+            return f"/usr/bin/{binary}"
+
+        mock_which.side_effect = which_side_effect
+
+        def run_side_effect(*args, **kwargs):
+            cmd = args[0]
+            if any("xclip" in token for token in cmd):
+                return MagicMock(returncode=1, stderr=b"xclip error")
+            return MagicMock(returncode=1, stderr=b"primary failed")
+
+        mock_run.side_effect = run_side_effect
+
+        config = InjectorConfig(backend="xdotool", clipboard_mode=True, dry_run=False)
+        injector = Injector(config)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            await injector.inject_text("hello")
+
+        assert "xclip" in str(exc_info.value) or "xclip error" in str(exc_info.value)
 
 
 class TestErrorHandling:

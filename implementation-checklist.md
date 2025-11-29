@@ -33,7 +33,7 @@
 - [x] Mock transcription in unit tests and prepare fixture WAV for integration
 
 ## 7. Create Text Injector
-- [x] Execute `wtype` (default) or `ydotool` subprocess with clipboard fallback via `wl-copy` when typing fails
+- [x] Execute `wtype` (default), `ydotool`, or `xdotool` subprocess with clipboard fallback via `wl-copy`/`xclip` when typing fails
 - [x] Implement dry-run mode
 - [x] Add robust error handling around exit codes and subprocess timeouts
 - [x] Implement async execution via thread pool executor to avoid blocking event loop
